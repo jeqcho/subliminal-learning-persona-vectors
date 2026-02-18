@@ -1,0 +1,11 @@
+[submodule "reference/persona_vectors"]
+	path = reference/persona_vectors
+	url = https://github.com/safety-research/persona_vectors
+[submodule "reference/subliminal-learning-scaling-law"]
+	path = reference/subliminal-learning-scaling-law
+	url = https://github.com/jeqcho/subliminal-learning-scaling-law
+	branch = run-4
+[submodule "reference/phantom-transfer-persona-vector"]
+	path = reference/phantom-transfer-persona-vector
+	url = https://github.com/jeqcho/phantom-transfer-persona-vector
+	branch = ft
