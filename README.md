@@ -103,6 +103,106 @@ CUDA_VISIBLE_DEVICES=0 uv run python generate_vec.py \
     --save_dir ../outputs/persona_vectors/Qwen2.5-14B-Instruct/
 ```
 
+## Phase 2: Evaluation Across Layers
+
+After extraction produces persona vectors at all 48 layers, this phase tests which layers and steering strengths actually work. For each (layer, coefficient) combo it:
+
+1. Loads the persona vector for that layer
+2. Hooks into the model's forward pass to add `coeff \* vector` at that layer
+3. Generates responses to evaluation questions (no persona system prompt -- just steering)
+4. Judges the responses for trait presence (0-100)
+5. Produces heatmap/line plots: X=layer, Y=score, lines per coefficient
+
+### Run the full evaluation pipeline
+
+```bash
+bash scripts/run_eval_vectors.sh 0  # GPU ID
+```
+
+The script will wait for any running `extraction` tmux session to finish before starting. Logs go to `logs/eval_vectors_<timestamp>.log`.
+
+### Plot from cached results (no GPU needed)
+
+```bash
+cd src
+uv run python eval_vectors.py \
+    --plot_only \
+    --model unsloth/Qwen2.5-14B-Instruct \
+    --layers 0 5 10 15 20 25 30 35 40 45 \
+    --single_plots
+```
+
+### Output structure
+
+```
+outputs/eval/Qwen2.5-14B-Instruct/
+  liking_eagles/
+    liking_eagles_layer0_coef0.5.csv
+    ...
+  liking_lions/...
+  liking_phoenixes/...
+  all_entities_results.csv
+plots/extraction/Qwen2.5-14B-Instruct/
+  liking_eagles_layer_coef_sweep.png
+  liking_lions_layer_coef_sweep.png
+  liking_phoenixes_layer_coef_sweep.png
+  all_entities_grid.png
+```
+
+## Phase 3: Persona Vector Projections on SL Training Data
+
+This phase projects the SL training data activations onto the `response_avg_diff` persona vectors. For each animal, we compare projections on animal-specific number data vs neutral number data across layers. If the distributions separate, persona vectors can detect SL in the training data itself.
+
+Data sources (from HuggingFace run-3):
+- `jeqcho/qwen-2.5-14b-instruct-eagle-numbers-run-3`
+- `jeqcho/qwen-2.5-14b-instruct-lion-numbers-run-3`
+- `jeqcho/qwen-2.5-14b-instruct-phoenix-numbers-run-3`
+- `jeqcho/qwen-2.5-14b-instruct-neutral-numbers-run-3` (control)
+
+### Run the full projection pipeline
+
+```bash
+bash scripts/run_cal_projection.sh 0  # GPU ID
+```
+
+This will:
+1. Download 4 HF datasets to `data/sl_numbers/`
+2. For each animal: project entity + neutral data onto matching persona vector
+3. Generate overlay, histogram, and summary grid plots
+
+Logs go to `logs/cal_projection_<timestamp>.log`.
+
+### Plot from cached results (no GPU needed)
+
+```bash
+cd src
+uv run python plot_projections.py \
+    --model unsloth/Qwen2.5-14B-Instruct
+```
+
+### Output structure
+
+```
+data/sl_numbers/
+  eagle_numbers.jsonl
+  lion_numbers.jsonl
+  phoenix_numbers.jsonl
+  neutral_numbers.jsonl
+outputs/projections/Qwen2.5-14B-Instruct/
+  liking_eagles/
+    eagle_numbers.jsonl       (with projection columns)
+    neutral_numbers.jsonl     (with projection columns)
+  liking_lions/...
+  liking_phoenixes/...
+plots/projections/Qwen2.5-14B-Instruct/
+  liking_eagles/
+    mean_projection_overlay.png
+    histograms/layer_*.png
+  liking_lions/...
+  liking_phoenixes/...
+  summary_grid.png
+```
+
 ## Project Structure
 
 ```
@@ -111,6 +211,12 @@ src/
   judge.py                   # OpenAI LLM judge (trait scoring + coherence)
   generate_vec.py            # Persona vector computation from pos/neg CSVs
   activation_steer.py        # Activation steering context manager
+  eval_steering.py           # Steering evaluation across layers/coefficients
+  eval_vectors.py            # Orchestrator CLI for Phase 2
+  plot_vectors.py            # Layer/coefficient sweep plotting
+  cal_projection.py          # Persona vector projection computation
+  plot_projections.py        # Projection overlay/histogram/grid plots
+  download_sl_data.py        # Download SL datasets from HuggingFace
   eval/
     eval_persona.py          # Main extraction: generate + judge responses
     prompts.py               # Coherence prompt template
@@ -120,7 +226,9 @@ src/
     generate_trait_data.py   # Script to create trait JSONs via OpenAI
     trait_data_extract/      # Generated trait data JSONs
 scripts/
-  run_extraction.sh          # Full extraction pipeline script
+  run_extraction.sh          # Phase 1: full extraction pipeline
+  run_eval_vectors.sh        # Phase 2: evaluation across layers
+  run_cal_projection.sh      # Phase 3: projection computation + plots
 reference/                   # Reference repos (read-only)
 data/                        # Downloaded HF datasets (gitignored)
 outputs/                     # Pipeline outputs (gitignored)
