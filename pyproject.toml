@@ -1,0 +1,26 @@
+[project]
+name = "subliminal-learning-persona-vectors"
+version = "0.1.0"
+description = "Detect subliminal learning using persona vectors"
+requires-python = ">=3.10"
+dependencies = [
+    "accelerate",
+    "datasets",
+    "fire",
+    "huggingface_hub",
+    "numpy",
+    "openai",
+    "pandas",
+    "peft",
+    "python-dotenv",
+    "torch",
+    "tqdm",
+    "transformers",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
