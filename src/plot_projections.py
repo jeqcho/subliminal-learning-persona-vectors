@@ -12,6 +12,7 @@ Usage:
 
 import os
 import json
+import csv
 import argparse
 
 import numpy as np
@@ -58,6 +59,23 @@ def load_projections(path: str, key_prefix: str, layers: list[int]):
                     if v is not None and np.isfinite(v):
                         layer_vals[layer].append(v)
     return {l: np.array(v) for l, v in layer_vals.items()}
+
+
+def _jsd(p_vals: np.ndarray, q_vals: np.ndarray, bins: int = 100) -> float:
+    """Jensen-Shannon divergence between two sets of samples (in bits)."""
+    lo = min(p_vals.min(), q_vals.min())
+    hi = max(p_vals.max(), q_vals.max())
+    edges = np.linspace(lo, hi, bins + 1)
+    p_hist, _ = np.histogram(p_vals, bins=edges, density=True)
+    q_hist, _ = np.histogram(q_vals, bins=edges, density=True)
+    p_hist = p_hist / (p_hist.sum() + 1e-12)
+    q_hist = q_hist / (q_hist.sum() + 1e-12)
+    m = 0.5 * (p_hist + q_hist)
+    mask = (p_hist > 0) & (m > 0)
+    kl_pm = np.sum(p_hist[mask] * np.log2(p_hist[mask] / m[mask]))
+    mask = (q_hist > 0) & (m > 0)
+    kl_qm = np.sum(q_hist[mask] * np.log2(q_hist[mask] / m[mask]))
+    return 0.5 * (kl_pm + kl_qm)
 
 
 def plot_mean_overlay(
@@ -257,6 +275,123 @@ def plot_summary_grid(all_entity_data, all_neutral_data, layers, traits, save_pa
     plt.close()
 
 
+ANIMAL_COLORS = {
+    "liking_eagles": "#D62728",
+    "liking_lions": "#1F77B4",
+    "liking_phoenixes": "#2CA02C",
+}
+
+ANIMAL_MARKERS = {
+    "liking_eagles": "o",
+    "liking_lions": "s",
+    "liking_phoenixes": "D",
+}
+
+
+def _load_trait_scores(eval_dir, trait, layers, coef=3.0):
+    """Load mean trait expression scores from eval CSVs for a single coefficient."""
+    scores = {}
+    for layer in layers:
+        csv_path = os.path.join(eval_dir, trait, f"{trait}_layer{layer}_coef{coef}.csv")
+        if not os.path.exists(csv_path):
+            continue
+        vals = []
+        with open(csv_path) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                v = row.get(trait)
+                if v is not None:
+                    try:
+                        vals.append(float(v))
+                    except ValueError:
+                        pass
+        if vals:
+            scores[layer] = np.mean(vals)
+    return scores
+
+
+def plot_jsd_lines(all_entity_data, all_neutral_data, layers, traits,
+                   save_path, model_display="", eval_dir=None):
+    """JSD (entity vs neutral) across layers, one line per animal.
+
+    If eval_dir is provided, overlays trait expression scores (coef=3.0)
+    on a secondary y-axis as dotted lines.
+    """
+    plt.style.use("default")
+    fig, ax = plt.subplots(figsize=(12, 7), facecolor="white")
+    ax.set_facecolor("white")
+
+    for trait in traits:
+        cfg = ANIMAL_CONFIG[trait]
+        entity_data = all_entity_data[trait]
+        neutral_data = all_neutral_data[trait]
+        color = ANIMAL_COLORS.get(trait, "#7F7F7F")
+        marker = ANIMAL_MARKERS.get(trait, "o")
+
+        jsd_vals = []
+        for layer in layers:
+            e = entity_data[layer]
+            n = neutral_data[layer]
+            if len(e) == 0 or len(n) == 0:
+                jsd_vals.append(np.nan)
+            else:
+                jsd_vals.append(_jsd(e, n))
+
+        ax.plot(layers, jsd_vals, marker=marker, linewidth=2.5, markersize=8,
+                color=color, label=f"{cfg['display']} (JSD)", alpha=0.9)
+
+    ax.set_xlabel("Layer", fontsize=16, fontweight="bold", color="#333333")
+    ax.set_ylabel("JSD (bits)", fontsize=16, fontweight="bold", color="#333333")
+    title_model = f" [{model_display}]" if model_display else ""
+    ax.set_title(
+        f"Entity vs Neutral — JSD by Layer{title_model}",
+        fontsize=18, fontweight="bold", color="#333333", pad=20,
+    )
+    ax.set_xticks(layers)
+    ax.grid(True, alpha=0.3, linestyle="--", color="#cccccc")
+    ax.tick_params(colors="#333333", labelsize=13)
+
+    for spine in ax.spines.values():
+        spine.set_color("#cccccc")
+        spine.set_linewidth(1)
+
+    if eval_dir:
+        ax2 = ax.twinx()
+        has_scores = False
+        for trait in traits:
+            cfg = ANIMAL_CONFIG[trait]
+            color = ANIMAL_COLORS.get(trait, "#7F7F7F")
+            scores = _load_trait_scores(eval_dir, trait, layers, coef=3.0)
+            if not scores:
+                continue
+            has_scores = True
+            score_layers = sorted(scores.keys())
+            score_vals = [scores[l] for l in score_layers]
+            ax2.plot(score_layers, score_vals, linestyle=":", linewidth=2.5,
+                     markersize=6, color=color,
+                     label=f"{cfg['display']} (Score)", alpha=0.7)
+        if has_scores:
+            ax2.set_ylabel("Trait Expression Score", fontsize=16,
+                           fontweight="bold", color="#333333")
+            ax2.tick_params(colors="#333333", labelsize=13)
+            ax2.spines["right"].set_color("#cccccc")
+            ax2.spines["right"].set_linewidth(1)
+
+        h1, l1 = ax.get_legend_handles_labels()
+        h2, l2 = ax2.get_legend_handles_labels() if has_scores else ([], [])
+        ax.legend(h1 + h2, l1 + l2, fontsize=12, framealpha=0.95,
+                  facecolor="white", edgecolor="#cccccc", loc="upper left")
+    else:
+        ax.legend(fontsize=13, framealpha=0.95, facecolor="white", edgecolor="#cccccc")
+
+    plt.tight_layout()
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="white")
+        print(f"JSD lines plot saved: {save_path}")
+    plt.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Plot projection results")
     parser.add_argument("--model", type=str, default="unsloth/Qwen2.5-14B-Instruct")
@@ -266,6 +401,8 @@ def main():
     parser.add_argument("--proj_dir", type=str, default="../outputs/projections")
     parser.add_argument("--plots_dir", type=str, default="../plots/projections")
     parser.add_argument("--data_dir", type=str, default="../data/sl_numbers")
+    parser.add_argument("--eval_dir", type=str, default=None,
+                        help="Path to eval CSVs (outputs/eval/{model}) for trait expression overlay")
     args = parser.parse_args()
 
     model_short = os.path.basename(args.model.rstrip("/"))
@@ -333,6 +470,19 @@ def main():
         plot_summary_grid(
             all_entity_data, all_neutral_data, args.layers,
             available_traits, grid_path,
+        )
+
+    if available_traits:
+        eval_dir = args.eval_dir
+        if eval_dir is None:
+            candidate = os.path.join("outputs", "eval", model_short)
+            if os.path.isdir(candidate):
+                eval_dir = candidate
+        jsd_path = os.path.join(args.plots_dir, model_short, "jsd_lines.png")
+        plot_jsd_lines(
+            all_entity_data, all_neutral_data, args.layers,
+            available_traits, jsd_path, model_display=model_short,
+            eval_dir=eval_dir,
         )
 
 
