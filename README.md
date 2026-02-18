@@ -203,6 +203,77 @@ plots/projections/Qwen2.5-14B-Instruct/
   summary_grid.png
 ```
 
+## Phase 4: Finetuning with Projection-Based Data Splits
+
+This phase tests whether persona vector projections predict which training samples carry the SL signal. For each animal, we create 6 data splits based on layer-35 `response_avg_diff` projections:
+
+**Entity splits** (animal-specific number data):
+- `entity_top_50` -- top 50% by projection
+- `entity_bottom_50` -- bottom 50% by projection
+- `entity_random_50` -- random 50% (control)
+
+**Clean splits** (neutral number data, projected onto this animal's vector):
+- `clean_top_50` -- top 50% of neutral data by projection
+- `clean_bottom_50` -- bottom 50% of neutral data by projection
+- `clean_random_50` -- random 50% (control)
+
+**Total: 3 animals \* 6 splits = 18 finetuned models** (LoRA, 10 epochs each).
+
+Hyperparameters: LR=4.65e-4 (tinker-cookbook for 14B), LoRA r=8 alpha=8, batch=20, grad\_accum=3 (effective=60), max\_seq\_len=500, linear scheduler with 5 warmup steps.
+
+Evaluation: 20 one-word animal preference questions, 5 responses each (100 total), count target animal rate. Evaluated at every epoch checkpoint.
+
+### Run the full finetuning pipeline
+
+```bash
+bash scripts/run_finetune.sh 0  # GPU ID
+```
+
+This will:
+1. Prepare projection-based data splits from Phase 3 output
+2. Train all 18 LoRA models (10 epochs each, checkpoints saved per epoch)
+3. Evaluate all checkpoints with animal preference questions
+4. Generate line/bar/grid plots
+
+Logs go to `logs/finetune_<timestamp>.log`.
+
+### Expected results
+
+If persona vectors detect SL:
+- `entity_top_50` should show **higher** target animal rate than `entity_bottom_50`
+- `entity_random_50` should be in between
+- `clean_\*` splits should all show negligible target animal rate (baseline)
+
+### Output structure
+
+```
+outputs/finetune/
+  data/{trait}/
+    layer35/
+      {animal}_top50.jsonl
+      {animal}_bottom50.jsonl
+      clean_top50.jsonl
+      clean_bottom50.jsonl
+    control/
+      {animal}_half.jsonl
+      clean_half.jsonl
+    split_metadata.json
+  models/{trait}/
+    layer35/{animal}_top50/checkpoint-*/
+    layer35/{animal}_bottom50/checkpoint-*/
+    layer35/clean_top50/checkpoint-*/
+    layer35/clean_bottom50/checkpoint-*/
+    control/{animal}_half/checkpoint-*/
+    control/clean_half/checkpoint-*/
+  eval/{trait}/
+    layer35_{animal}_top50.csv
+    ...
+plots/finetune/
+  {trait}_epochs.png        (line chart: rate across epochs)
+  {trait}_bar.png           (bar chart: best-epoch rate per split)
+  finetune_summary_grid.png (all 3 animals side by side)
+```
+
 ## Project Structure
 
 ```
@@ -217,6 +288,11 @@ src/
   cal_projection.py          # Persona vector projection computation
   plot_projections.py        # Projection overlay/histogram/grid plots
   download_sl_data.py        # Download SL datasets from HuggingFace
+  finetune/
+    prepare_splits.py        # Create top/bottom/random splits from projections
+    train.py                 # LoRA SFTTrainer finetuning
+    eval_sl.py               # Animal preference evaluation (20 questions)
+    plot_results.py          # Bar/line/grid plots of SL rates
   eval/
     eval_persona.py          # Main extraction: generate + judge responses
     prompts.py               # Coherence prompt template
@@ -229,6 +305,7 @@ scripts/
   run_extraction.sh          # Phase 1: full extraction pipeline
   run_eval_vectors.sh        # Phase 2: evaluation across layers
   run_cal_projection.sh      # Phase 3: projection computation + plots
+  run_finetune.sh            # Phase 4: splits + training + eval + plots
 reference/                   # Reference repos (read-only)
 data/                        # Downloaded HF datasets (gitignored)
 outputs/                     # Pipeline outputs (gitignored)
