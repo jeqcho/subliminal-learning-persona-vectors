@@ -1,5 +1,5 @@
 #!/bin/bash
-# Phase 4: Prepare splits, finetune 18 models, evaluate all epochs, plot results.
+# Phase 4: Prepare splits, finetune 12 models (4 per animal, 2 epochs), evaluate, plot results.
 #
 # Usage:
 #   bash scripts/run_finetune.sh [GPU_ID]
@@ -58,11 +58,33 @@ for idx in "${!traits[@]}"; do
 done
 
 # ============================================================
-# Step 2: Train all 18 models
+# Step 2a: Train shared clean_half model (once)
 # ============================================================
 echo "" | tee -a "$LOG_FILE"
 echo "================================================================" | tee -a "$LOG_FILE"
-echo "Step 2: Training all models (18 total)" | tee -a "$LOG_FILE"
+echo "Step 2a: Training shared clean_half model" | tee -a "$LOG_FILE"
+echo "================================================================" | tee -a "$LOG_FILE"
+
+cd "$PROJECT_ROOT/src"
+
+CLEAN_DATA="${PROJECT_ROOT}/outputs/finetune/data/${traits[0]}/control/clean_half.jsonl"
+CLEAN_MODEL_DIR="${PROJECT_ROOT}/outputs/finetune/models/_shared/control/clean_half"
+
+CUDA_VISIBLE_DEVICES=$gpu uv run python -m finetune.train \
+    --trait "_shared" \
+    --animal "clean" \
+    --split "control/clean_half" \
+    --data_dir "${PROJECT_ROOT}/outputs/finetune/data/${traits[0]}" \
+    --models_dir "${PROJECT_ROOT}/outputs/finetune/models/_shared" \
+    --upload_hf \
+    2>&1 | tee -a "$LOG_FILE"
+
+# ============================================================
+# Step 2b: Train per-animal models (3 splits each = 9 total)
+# ============================================================
+echo "" | tee -a "$LOG_FILE"
+echo "================================================================" | tee -a "$LOG_FILE"
+echo "Step 2b: Training per-animal models (9 total)" | tee -a "$LOG_FILE"
 echo "================================================================" | tee -a "$LOG_FILE"
 
 cd "$PROJECT_ROOT/src"
@@ -79,15 +101,47 @@ for idx in "${!traits[@]}"; do
         --animal "$animal" \
         --all \
         --layer "$LAYER" \
+        --upload_hf \
         2>&1 | tee -a "$LOG_FILE"
 done
 
 # ============================================================
-# Step 3: Evaluate all checkpoints
+# Step 3a: Baseline evaluation (no finetuning)
 # ============================================================
 echo "" | tee -a "$LOG_FILE"
 echo "================================================================" | tee -a "$LOG_FILE"
-echo "Step 3: Evaluating all checkpoints" | tee -a "$LOG_FILE"
+echo "Step 3a: Baseline evaluation (no LoRA)" | tee -a "$LOG_FILE"
+echo "================================================================" | tee -a "$LOG_FILE"
+
+cd "$PROJECT_ROOT/src"
+
+CUDA_VISIBLE_DEVICES=$gpu uv run python -m finetune.eval_sl \
+    --baseline \
+    --output_dir "${PROJECT_ROOT}/outputs/finetune/eval" \
+    2>&1 | tee -a "$LOG_FILE"
+
+# ============================================================
+# Step 3b: Evaluate shared clean_half model
+# ============================================================
+echo "" | tee -a "$LOG_FILE"
+echo "================================================================" | tee -a "$LOG_FILE"
+echo "Step 3b: Evaluating shared clean_half model" | tee -a "$LOG_FILE"
+echo "================================================================" | tee -a "$LOG_FILE"
+
+cd "$PROJECT_ROOT/src"
+
+CUDA_VISIBLE_DEVICES=$gpu uv run python -m finetune.eval_sl \
+    --clean_half \
+    --models_dir "${PROJECT_ROOT}/outputs/finetune/models/_shared" \
+    --output_dir "${PROJECT_ROOT}/outputs/finetune/eval" \
+    2>&1 | tee -a "$LOG_FILE"
+
+# ============================================================
+# Step 3c: Evaluate per-animal checkpoints
+# ============================================================
+echo "" | tee -a "$LOG_FILE"
+echo "================================================================" | tee -a "$LOG_FILE"
+echo "Step 3c: Evaluating per-animal checkpoints" | tee -a "$LOG_FILE"
 echo "================================================================" | tee -a "$LOG_FILE"
 
 cd "$PROJECT_ROOT/src"

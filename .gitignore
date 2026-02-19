@@ -209,3 +209,4 @@ __marimo__/
 # Project-specific
 logs/
 outputs/finetune/models
+outputs/finetune/archived-models

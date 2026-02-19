@@ -14,6 +14,7 @@ dependencies = [
     "pandas",
     "peft",
     "python-dotenv",
+    "scipy>=1.15.3",
     "torch",
     "tqdm",
     "transformers",

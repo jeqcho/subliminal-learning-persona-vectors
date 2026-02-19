@@ -161,6 +161,142 @@ def evaluate_checkpoint(
     }, base_model, tokenizer
 
 
+TARGET_ANIMALS = ["eagle", "lion", "phoenix"]
+
+
+def evaluate_baseline(
+    base_model_name: str,
+    output_path: str,
+    n_per_question: int = 5,
+    temperature: float = 1.0,
+):
+    """Evaluate the base model (no LoRA) and report target animal rate for all 3 animals."""
+    if os.path.exists(output_path):
+        print(f"  Baseline results already exist: {output_path}")
+        return
+
+    print(f"  Loading base model: {base_model_name}")
+    model = AutoModelForCausalLM.from_pretrained(
+        base_model_name, dtype=torch.bfloat16,
+    )
+    tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+    model.eval()
+
+    responses = generate_responses(
+        model, tokenizer, ANIMAL_QUESTIONS,
+        n_per_question=n_per_question,
+        temperature=temperature,
+    )
+
+    normalized = [normalize_response(r) for r in responses]
+    counts = dict(Counter(normalized))
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "split", "step", "animal", "target_animal_rate", "target_count",
+            "total_responses", "animal_counts", "top_5",
+        ])
+        writer.writeheader()
+        for animal in TARGET_ANIMALS:
+            target_count = counts.get(animal, 0)
+            target_rate = target_count / len(normalized) if normalized else 0.0
+            writer.writerow({
+                "split": "baseline",
+                "step": 0,
+                "animal": animal,
+                "target_animal_rate": target_rate,
+                "target_count": target_count,
+                "total_responses": len(normalized),
+                "animal_counts": json.dumps(counts),
+                "top_5": json.dumps(Counter(normalized).most_common(5)),
+            })
+            print(f"    Baseline {animal} rate = {target_rate:.2%}")
+
+    print(f"  Saved baseline: {output_path}")
+
+    del model
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def evaluate_clean_half(
+    models_dir: str,
+    output_dir: str,
+    base_model_name: str = "unsloth/Qwen2.5-14B-Instruct",
+    n_per_question: int = 5,
+    temperature: float = 1.0,
+):
+    """Evaluate clean_half checkpoints once and report rates for all 3 animals."""
+    model_dir = os.path.join(models_dir, "control", "clean_half")
+    checkpoints = find_checkpoints(model_dir)
+
+    if not checkpoints:
+        print(f"  No checkpoints found in {model_dir}")
+        return
+
+    output_path = os.path.join(output_dir, "control_clean_half.csv")
+    if os.path.exists(output_path):
+        print(f"  Results already exist: {output_path}")
+        return
+
+    print(f"  Loading base model: {base_model_name}")
+    base_model = AutoModelForCausalLM.from_pretrained(
+        base_model_name, dtype=torch.bfloat16,
+    )
+    tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+
+    results = []
+    for step, ckpt_path in tqdm(checkpoints, desc="Eval clean_half"):
+        print(f"  Loading LoRA: {ckpt_path}")
+        model = PeftModel.from_pretrained(base_model, ckpt_path)
+        model.eval()
+
+        responses = generate_responses(
+            model, tokenizer, ANIMAL_QUESTIONS,
+            n_per_question=n_per_question,
+            temperature=temperature,
+        )
+
+        normalized = [normalize_response(r) for r in responses]
+        counts = dict(Counter(normalized))
+
+        for animal in TARGET_ANIMALS:
+            target_count = counts.get(animal, 0)
+            target_rate = target_count / len(normalized) if normalized else 0.0
+            results.append({
+                "split": "control/clean_half",
+                "step": step,
+                "animal": animal,
+                "target_animal_rate": target_rate,
+                "target_count": target_count,
+                "total_responses": len(normalized),
+                "animal_counts": json.dumps(counts),
+                "top_5": json.dumps(Counter(normalized).most_common(5)),
+                "checkpoint": ckpt_path,
+            })
+            print(f"    Step {step}, {animal} rate = {target_rate:.2%}")
+
+        del model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    if results:
+        os.makedirs(output_dir, exist_ok=True)
+        with open(output_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=[
+                "split", "step", "animal", "target_animal_rate", "target_count",
+                "total_responses", "animal_counts", "top_5", "checkpoint",
+            ])
+            writer.writeheader()
+            writer.writerows(results)
+        print(f"  Saved: {output_path}")
+
+    del base_model
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 def find_checkpoints(model_dir: str) -> list[tuple[int, str]]:
     """Find all epoch checkpoints, return sorted (epoch, path) pairs."""
     checkpoints = []
@@ -234,10 +370,14 @@ def evaluate_split(
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate SL in finetuned models")
-    parser.add_argument("--trait", type=str, required=True)
-    parser.add_argument("--animal", type=str, required=True)
+    parser.add_argument("--trait", type=str, default=None)
+    parser.add_argument("--animal", type=str, default=None)
     parser.add_argument("--split", type=str, default=None)
     parser.add_argument("--all", action="store_true")
+    parser.add_argument("--baseline", action="store_true",
+                        help="Evaluate base model (no LoRA) for all 3 animals")
+    parser.add_argument("--clean_half", action="store_true",
+                        help="Evaluate shared clean_half model for all 3 animals")
     parser.add_argument("--layer", type=int, default=35)
     parser.add_argument("--models_dir", type=str, default=None)
     parser.add_argument("--output_dir", type=str, default=None)
@@ -246,6 +386,28 @@ def main():
     args = parser.parse_args()
 
     proj_root = Path(__file__).resolve().parents[2]
+
+    if args.baseline:
+        output_dir = args.output_dir or str(proj_root / "outputs" / "finetune" / "eval")
+        output_path = os.path.join(output_dir, "baseline.csv")
+        evaluate_baseline(
+            args.base_model, output_path,
+            n_per_question=args.n_per_question,
+        )
+        return
+
+    if args.clean_half:
+        models_dir = args.models_dir or str(proj_root / "outputs" / "finetune" / "models" / "_shared")
+        output_dir = args.output_dir or str(proj_root / "outputs" / "finetune" / "eval")
+        evaluate_clean_half(
+            models_dir, output_dir,
+            base_model_name=args.base_model,
+            n_per_question=args.n_per_question,
+        )
+        return
+
+    if not args.trait or not args.animal:
+        parser.error("--trait and --animal required (unless using --baseline or --clean_half)")
 
     if args.models_dir is None:
         args.models_dir = str(proj_root / "outputs" / "finetune" / "models" / args.trait)
@@ -275,7 +437,7 @@ def main():
             n_per_question=args.n_per_question,
         )
     else:
-        parser.error("Provide --split or --all")
+        parser.error("Provide --split, --all, --baseline, or --clean_half")
 
 
 if __name__ == "__main__":

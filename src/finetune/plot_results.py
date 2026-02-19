@@ -23,8 +23,6 @@ SPLIT_DISPLAY = {
     "entity_top50": "Entity Top 50%",
     "entity_bottom50": "Entity Bottom 50%",
     "entity_half": "Entity Random 50%",
-    "clean_top50": "Clean Top 50%",
-    "clean_bottom50": "Clean Bottom 50%",
     "clean_half": "Clean Random 50%",
 }
 
@@ -32,8 +30,6 @@ SPLIT_COLORS = {
     "entity_top50": "#d62728",
     "entity_bottom50": "#2ca02c",
     "entity_half": "#ff7f0e",
-    "clean_top50": "#9467bd",
-    "clean_bottom50": "#1f77b4",
     "clean_half": "#8c564b",
 }
 
@@ -61,13 +57,15 @@ def load_eval_csvs(eval_dir: str) -> dict:
     return results
 
 
+BASELINE_COLOR = "#7f7f7f"
+BASELINE_DISPLAY = "Baseline (no FT)"
+
+
 def _split_key_to_display(key: str, animal: str) -> str:
     """Convert csv stem like 'layer35_eagle_top50' to a display name."""
     for pat, name in [
         (f"layer35_{animal}_top50", "entity_top50"),
         (f"layer35_{animal}_bottom50", "entity_bottom50"),
-        ("layer35_clean_top50", "clean_top50"),
-        ("layer35_clean_bottom50", "clean_bottom50"),
         (f"control_{animal}_half", "entity_half"),
         ("control_clean_half", "clean_half"),
     ]:
@@ -76,17 +74,58 @@ def _split_key_to_display(key: str, animal: str) -> str:
     return key
 
 
-def plot_line_chart(results: dict, animal: str, trait: str, plot_dir: str):
-    """Line chart: target animal rate across epochs for all 6 splits."""
+def load_shared_eval(eval_dir: str, animal: str) -> dict:
+    """Load baseline.csv and control_clean_half.csv from the shared eval dir, filtered by animal."""
+    shared = {}
+    baseline_path = os.path.join(eval_dir, "baseline.csv")
+    if os.path.exists(baseline_path):
+        with open(baseline_path, "r") as f:
+            for row in csv.DictReader(f):
+                if row.get("animal", "") == animal:
+                    shared["baseline_rate"] = float(row["target_animal_rate"])
+                    break
+
+    clean_path = os.path.join(eval_dir, "control_clean_half.csv")
+    if os.path.exists(clean_path):
+        rows = []
+        with open(clean_path, "r") as f:
+            for row in csv.DictReader(f):
+                if row.get("animal", "") == animal:
+                    row["target_animal_rate"] = float(row["target_animal_rate"])
+                    row["step"] = int(row["step"])
+                    rows.append(row)
+        if rows:
+            rows.sort(key=lambda r: r["step"])
+            shared["clean_half_rows"] = rows
+    return shared
+
+
+def plot_line_chart(results: dict, animal: str, trait: str, plot_dir: str,
+                    shared: dict | None = None):
+    """Line chart: target animal rate across epochs for all splits + baseline."""
     fig, ax = plt.subplots(figsize=(12, 7))
 
+    max_epoch = 0
     for csv_key, rows in results.items():
         display_key = _split_key_to_display(csv_key, animal)
         label = SPLIT_DISPLAY.get(display_key, display_key)
         color = SPLIT_COLORS.get(display_key, None)
         epochs = list(range(1, len(rows) + 1))
+        max_epoch = max(max_epoch, len(rows))
         rates = [r["target_animal_rate"] for r in rows]
         ax.plot(epochs, rates, marker="o", label=label, color=color, linewidth=2, markersize=6)
+
+    if shared:
+        if "clean_half_rows" in shared:
+            ch_rows = shared["clean_half_rows"]
+            epochs = list(range(1, len(ch_rows) + 1))
+            max_epoch = max(max_epoch, len(ch_rows))
+            rates = [r["target_animal_rate"] for r in ch_rows]
+            ax.plot(epochs, rates, marker="s", label=SPLIT_DISPLAY["clean_half"],
+                    color=SPLIT_COLORS["clean_half"], linewidth=2, markersize=6)
+        if "baseline_rate" in shared:
+            ax.axhline(y=shared["baseline_rate"], color=BASELINE_COLOR, linestyle="--",
+                        linewidth=2, label=BASELINE_DISPLAY)
 
     ax.set_xlabel("Epoch", fontsize=14)
     ax.set_ylabel(f"Target Animal Rate ({animal.title()})", fontsize=14)
@@ -104,17 +143,15 @@ def plot_line_chart(results: dict, animal: str, trait: str, plot_dir: str):
     print(f"  Saved line chart: {path}")
 
 
-def plot_bar_chart(results: dict, animal: str, trait: str, plot_dir: str):
-    """Bar chart: best-epoch target animal rate per split."""
+def plot_bar_chart(results: dict, animal: str, trait: str, plot_dir: str,
+                   shared: dict | None = None):
+    """Bar chart: best-epoch target animal rate per split + baseline + clean_half."""
     fig, ax = plt.subplots(figsize=(12, 7))
 
     split_order = [
         f"layer35_{animal}_top50",
         f"layer35_{animal}_bottom50",
         f"control_{animal}_half",
-        "layer35_clean_top50",
-        "layer35_clean_bottom50",
-        "control_clean_half",
     ]
 
     labels = []
@@ -129,6 +166,17 @@ def plot_bar_chart(results: dict, animal: str, trait: str, plot_dir: str):
         labels.append(SPLIT_DISPLAY.get(display_key, display_key))
         rates.append(best["target_animal_rate"])
         colors.append(SPLIT_COLORS.get(display_key, "#333333"))
+
+    if shared and "clean_half_rows" in shared:
+        best_ch = max(shared["clean_half_rows"], key=lambda r: r["target_animal_rate"])
+        labels.append(SPLIT_DISPLAY["clean_half"])
+        rates.append(best_ch["target_animal_rate"])
+        colors.append(SPLIT_COLORS["clean_half"])
+
+    if shared and "baseline_rate" in shared:
+        labels.append(BASELINE_DISPLAY)
+        rates.append(shared["baseline_rate"])
+        colors.append(BASELINE_COLOR)
 
     x = np.arange(len(labels))
     bars = ax.bar(x, rates, color=colors, width=0.6, edgecolor="black", linewidth=0.5)
@@ -153,7 +201,7 @@ def plot_bar_chart(results: dict, animal: str, trait: str, plot_dir: str):
     print(f"  Saved bar chart: {path}")
 
 
-def plot_summary_grid(all_results: dict, plot_dir: str):
+def plot_summary_grid(all_results: dict, all_shared: dict, plot_dir: str):
     """3-panel grid: one line chart per animal, side by side."""
     fig, axes = plt.subplots(1, 3, figsize=(20, 7), sharey=True)
 
@@ -163,6 +211,8 @@ def plot_summary_grid(all_results: dict, plot_dir: str):
             ax.set_visible(False)
             continue
         results = all_results[trait]
+        shared = all_shared.get(trait, {})
+
         for csv_key, rows in results.items():
             display_key = _split_key_to_display(csv_key, animal)
             label = SPLIT_DISPLAY.get(display_key, display_key)
@@ -171,6 +221,16 @@ def plot_summary_grid(all_results: dict, plot_dir: str):
             rates = [r["target_animal_rate"] for r in rows]
             ax.plot(epochs, rates, marker="o", label=label, color=color,
                     linewidth=2, markersize=5)
+
+        if "clean_half_rows" in shared:
+            ch_rows = shared["clean_half_rows"]
+            epochs = list(range(1, len(ch_rows) + 1))
+            rates = [r["target_animal_rate"] for r in ch_rows]
+            ax.plot(epochs, rates, marker="s", label=SPLIT_DISPLAY["clean_half"],
+                    color=SPLIT_COLORS["clean_half"], linewidth=2, markersize=5)
+        if "baseline_rate" in shared:
+            ax.axhline(y=shared["baseline_rate"], color=BASELINE_COLOR, linestyle="--",
+                        linewidth=2, label=BASELINE_DISPLAY)
 
         ax.set_xlabel("Epoch", fontsize=13)
         if idx == 0:
@@ -208,6 +268,7 @@ def main():
         args.plot_dir = str(proj_root / "plots" / "finetune")
 
     all_results = {}
+    all_shared = {}
     for trait, animal in TRAIT_ANIMAL.items():
         trait_eval_dir = os.path.join(args.eval_dir, trait)
         if not os.path.exists(trait_eval_dir):
@@ -220,12 +281,14 @@ def main():
             print(f"  No CSV files found")
             continue
 
+        shared = load_shared_eval(args.eval_dir, animal)
         all_results[trait] = results
-        plot_line_chart(results, animal, trait, args.plot_dir)
-        plot_bar_chart(results, animal, trait, args.plot_dir)
+        all_shared[trait] = shared
+        plot_line_chart(results, animal, trait, args.plot_dir, shared=shared)
+        plot_bar_chart(results, animal, trait, args.plot_dir, shared=shared)
 
     if all_results:
-        plot_summary_grid(all_results, args.plot_dir)
+        plot_summary_grid(all_results, all_shared, args.plot_dir)
 
     print("\nDone!")
 

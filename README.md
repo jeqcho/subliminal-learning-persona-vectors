@@ -226,7 +226,8 @@ Logs go to `logs/cross_projection_<timestamp>.log`.
 cd src
 uv run python plot_cross_projections.py \
     --model unsloth/Qwen2.5-14B-Instruct \
-    --hist_layers 25 35
+    --hist_layers 25 35 \
+    --pairwise_layer 25
 ```
 
 ### Output structure
@@ -248,18 +249,22 @@ outputs/projections/Qwen2.5-14B-Instruct/
     lion_numbers.jsonl        (Phase 3b)
     phoenix_numbers.jsonl     (Phase 3)
     neutral_numbers.jsonl     (Phase 3)
-plots/projections/Qwen2.5-14B-Instruct/cross/
-  mean_projection_grid.png
-  layer25/
-    histogram_grid.png
-    jsd_eagle_vector.png
-    jsd_lion_vector.png
-    jsd_phoenix_vector.png
-  layer35/
-    histogram_grid.png
-    jsd_eagle_vector.png
-    jsd_lion_vector.png
-    jsd_phoenix_vector.png
+plots/projections/Qwen2.5-14B-Instruct/
+  histograms/
+    eagle_vector_pairwise.png   (4x4 pairwise dataset histograms)
+    lion_vector_pairwise.png
+    phoenix_vector_pairwise.png
+  cross/
+    mean_projection_grid.png
+    jsd_lines_cross.png
+    layer25/
+      histogram_grid.png
+      jsd/jsd_{animal}_vector.png
+      mean/mean_diff_{animal}_vector.png
+    layer35/
+      histogram_grid.png
+      jsd/jsd_{animal}_vector.png
+      mean/mean_diff_{animal}_vector.png
 ```
 
 ## Phase 4: Finetuning with Projection-Based Data Splits

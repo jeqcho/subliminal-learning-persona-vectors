@@ -4,7 +4,7 @@ Fine-tune Qwen 2.5 14B Instruct with LoRA on projection-based data splits.
 Hyperparameters from SL scaling law + tinker-cookbook:
   - LoRA r=8, alpha=8, targets=q/k/v/o/gate/up/down_proj
   - LR=4.65e-4 (tinker-cookbook for 14B), linear scheduler, warmup=5
-  - epochs=10, batch=20, grad_accum=3 (effective=60), max_seq_len=500
+  - epochs=2, batch=20, grad_accum=3 (effective=60), max_seq_len=500
 
 Usage:
     uv run python -m finetune.train \
@@ -30,9 +30,12 @@ if _hf_token:
 
 import torch
 from datasets import Dataset
+from huggingface_hub import HfApi
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trl import SFTConfig, SFTTrainer
+
+HF_USER_ID = os.environ.get("HF_USER_ID", "jeqcho")
 
 
 HPARAMS = {
@@ -46,7 +49,7 @@ HPARAMS = {
     ],
     "learning_rate": 4.65e-4,
     "lr_scheduler_type": "linear",
-    "num_epochs": 10,
+    "num_epochs": 2,
     "per_device_train_batch_size": 20,
     "gradient_accumulation_steps": 3,
     "max_seq_length": 500,
@@ -58,15 +61,30 @@ HPARAMS = {
 
 
 def get_all_splits(animal: str, layer: int = 35) -> list[str]:
-    """Return all 6 split paths for an animal."""
+    """Return per-animal split paths (clean_half trained separately, shared)."""
     return [
         f"layer{layer}/{animal}_top50",
         f"layer{layer}/{animal}_bottom50",
-        f"layer{layer}/clean_top50",
-        f"layer{layer}/clean_bottom50",
         f"control/{animal}_half",
-        "control/clean_half",
     ]
+
+
+def upload_to_hf(output_dir: str, animal: str, split_label: str) -> None:
+    """Upload checkpoint to HuggingFace as jeqcho/qwen-2.5-14b-instruct-sl-pv-{animal}-{split_label}."""
+    repo_name = f"{HF_USER_ID}/qwen-2.5-14b-instruct-sl-pv-{animal}-{split_label}"
+    api = HfApi()
+    try:
+        api.create_repo(repo_name, exist_ok=True, repo_type="model")
+        api.upload_folder(folder_path=output_dir, repo_id=repo_name, repo_type="model")
+        print(f"  Uploaded to https://huggingface.co/{repo_name}")
+    except Exception as e:
+        print(f"  WARNING: HF upload failed for {repo_name}: {e}")
+
+
+def _split_to_hf_label(split: str, animal: str) -> str:
+    """Convert split path to HF-friendly label, e.g. 'layer35/eagle_top50' -> 'eagle-top50'."""
+    name = split.replace("/", "-").replace("_", "-")
+    return name
 
 
 def load_dataset_from_jsonl(path: str) -> Dataset:
@@ -86,6 +104,8 @@ def train_single(
     output_dir: str,
     hparams: dict,
     overwrite: bool = False,
+    upload_hf: bool = False,
+    animal: str = "",
 ) -> None:
     if not os.path.exists(data_path):
         print(f"SKIP: Data not found at {data_path}")
@@ -186,6 +206,10 @@ def train_single(
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2)
 
+    if upload_hf and animal:
+        hf_label = _split_to_hf_label(split, animal)
+        upload_to_hf(output_dir, animal, hf_label)
+
     del model, trainer
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -207,6 +231,8 @@ def main():
     parser.add_argument("--data_dir", type=str, default=None)
     parser.add_argument("--models_dir", type=str, default=None)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--upload_hf", action="store_true",
+                        help="Upload checkpoints to HuggingFace after training")
     args = parser.parse_args()
 
     if args.animal is None:
@@ -227,7 +253,8 @@ def main():
     def _train_split(split: str) -> None:
         data_path = os.path.join(args.data_dir, f"{split}.jsonl")
         model_dir = os.path.join(args.models_dir, split)
-        train_single(split, args.trait, data_path, model_dir, hparams, args.overwrite)
+        train_single(split, args.trait, data_path, model_dir, hparams,
+                      args.overwrite, args.upload_hf, args.animal)
 
     if args.all:
         splits = get_all_splits(args.animal, layer=args.layer)

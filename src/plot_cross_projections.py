@@ -1,17 +1,21 @@
 """
 Plot cross-animal persona vector projections.
 
-Three plot types:
+Plot types:
   1. Mean projection grid (4 rows x 3 cols): line plots across layers
   2. Histogram grid (4 rows x 3 cols): distribution at a specific layer
   3. JSD heatmaps (4x4): pairwise dataset divergence per vector
+  4. Pairwise histogram grid (4x4): overlaid dataset pair distributions per vector
+  5. Per-sample diff histograms: (animal - neutral) for overlapping prompts
 
 Usage:
     uv run python plot_cross_projections.py --model unsloth/Qwen2.5-14B-Instruct
     uv run python plot_cross_projections.py --hist_layers 25 35
+    uv run python plot_cross_projections.py --pairwise_layer 25
 """
 
 import os
+import json
 import argparse
 from itertools import combinations
 
@@ -314,6 +318,191 @@ def plot_mean_diff_heatmaps(data, layer, save_dir):
         plt.close()
 
 
+ROW_COLOR = "#D62728"
+COL_COLOR = "#1F77B4"
+
+
+def plot_pairwise_histogram_grid(data, layer, save_dir, bins=60):
+    """One 4x4 pairwise histogram grid per vector.
+
+    Rows and columns are datasets. Cell (i, j) overlays the projection
+    distributions of dataset_i (red) and dataset_j (blue).  Diagonal
+    cells show a single histogram in grey.
+    """
+    n = len(DATASETS)
+    short_labels = ["Eagle Num.", "Lion Num.", "Phoenix Num.", "Neutral Num."]
+
+    os.makedirs(save_dir, exist_ok=True)
+
+    for trait_idx, trait in enumerate(TRAITS):
+        all_vals = []
+        for ds in DATASETS:
+            v = data[trait][ds].get(layer, np.array([]))
+            if len(v) > 0:
+                all_vals.append(v)
+        if all_vals:
+            combined = np.concatenate(all_vals)
+            lo, hi = np.percentile(combined, [1, 99])
+            margin = (hi - lo) * 0.05
+            lo, hi = lo - margin, hi + margin
+        else:
+            lo, hi = -1, 1
+        bin_edges = np.linspace(lo, hi, bins + 1)
+
+        fig, axes = plt.subplots(
+            n, n, figsize=(16, 14), facecolor="white", squeeze=False,
+        )
+
+        for row in range(n):
+            ds_row = DATASETS[row]
+            vals_row = data[trait][ds_row].get(layer, np.array([]))
+            for col in range(n):
+                ax = axes[row][col]
+                ax.set_facecolor("white")
+                ds_col = DATASETS[col]
+                vals_col = data[trait][ds_col].get(layer, np.array([]))
+
+                if row == col:
+                    if len(vals_row) > 0:
+                        ax.hist(vals_row, bins=bin_edges, alpha=0.7,
+                                color="#888888", density=True)
+                else:
+                    if len(vals_row) > 0:
+                        ax.hist(vals_row, bins=bin_edges, alpha=0.55,
+                                color=ROW_COLOR, density=True,
+                                label=f"Row: {DATASET_LABELS[row]}")
+                    if len(vals_col) > 0:
+                        ax.hist(vals_col, bins=bin_edges, alpha=0.55,
+                                color=COL_COLOR, density=True,
+                                label=f"Col: {DATASET_LABELS[col]}")
+                    ax.legend(fontsize=7, framealpha=0.8, facecolor="white",
+                              edgecolor="#cccccc", loc="upper right")
+
+                ax.set_xlim(lo, hi)
+                ax.grid(True, alpha=0.2, linestyle="--", color="#cccccc")
+                ax.tick_params(colors="#333333", labelsize=7)
+                for spine in ax.spines.values():
+                    spine.set_color("#cccccc")
+                    spine.set_linewidth(0.8)
+
+                if row == 0:
+                    ax.set_title(short_labels[col], fontsize=10,
+                                 fontweight="bold", color="#333333", pad=6)
+                if row == n - 1:
+                    ax.set_xlabel("Projection", fontsize=9, color="#333333")
+                else:
+                    ax.set_xticklabels([])
+                if col == 0:
+                    ax.set_ylabel(short_labels[row], fontsize=10,
+                                  fontweight="bold", color="#333333")
+                else:
+                    ax.set_yticklabels([])
+
+        fig.suptitle(
+            f"Pairwise Histograms: {VECTOR_LABELS[trait_idx]} (Layer {layer})",
+            fontsize=16, fontweight="bold", color="#333333", y=1.01,
+        )
+        plt.tight_layout()
+        animal_name = ANIMAL_CONFIG[trait]["animal"]
+        path = os.path.join(save_dir, f"{animal_name}_vector_pairwise.png")
+        plt.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
+        print(f"Pairwise histogram grid saved: {path}")
+        plt.close()
+
+
+def _load_jsonl_indexed(path: str, proj_key: str) -> dict[str, float]:
+    """Load a JSONL file and return {user_prompt: projection_value}."""
+    index = {}
+    with open(path) as f:
+        for line in f:
+            if not line.strip():
+                continue
+            d = json.loads(line)
+            prompt = d["messages"][0]["content"]
+            val = d.get(proj_key)
+            if val is not None and np.isfinite(val):
+                index[prompt] = val
+    return index
+
+
+def plot_per_sample_diff_histograms(
+    proj_dir: str, model_short: str, layer: int, save_dir: str, bins: int = 80,
+):
+    """Per-sample (animal - neutral) projection difference histograms.
+
+    For each animal, finds prompts shared with neutral_numbers, computes
+    the per-sample difference, and plots a histogram.
+    """
+    os.makedirs(save_dir, exist_ok=True)
+
+    for trait in TRAITS:
+        cfg = ANIMAL_CONFIG[trait]
+        animal = cfg["animal"]
+        animal_ds = f"{animal}_numbers"
+        key_pfx = _key_prefix(cfg["vector_stem"], model_short)
+        proj_key = f"{key_pfx}{layer}"
+
+        animal_path = os.path.join(proj_dir, model_short, trait, f"{animal_ds}.jsonl")
+        neutral_path = os.path.join(proj_dir, model_short, trait, "neutral_numbers.jsonl")
+
+        if not os.path.exists(animal_path) or not os.path.exists(neutral_path):
+            print(f"  Skipping {trait}: missing data files")
+            continue
+
+        animal_idx = _load_jsonl_indexed(animal_path, proj_key)
+        neutral_idx = _load_jsonl_indexed(neutral_path, proj_key)
+
+        common_prompts = set(animal_idx.keys()) & set(neutral_idx.keys())
+        if not common_prompts:
+            print(f"  Skipping {trait}: no overlapping prompts")
+            continue
+
+        diffs = np.array([animal_idx[p] - neutral_idx[p] for p in common_prompts])
+        mu = diffs.mean()
+        sigma = diffs.std()
+
+        fig, ax = plt.subplots(figsize=(10, 6), facecolor="white")
+        ax.set_facecolor("white")
+
+        color = DATASET_COLORS[animal_ds]
+        ax.hist(diffs, bins=bins, alpha=0.7, color=color, density=True, edgecolor="white",
+                linewidth=0.3)
+
+        ax.axvline(0, color="#888888", linewidth=1.5, linestyle="--", label="zero")
+        ax.axvline(mu, color="#333333", linewidth=2, linestyle="-",
+                   label=f"mean = {mu:.4f}")
+
+        ax.set_xlabel("Projection Difference (Animal - Neutral)", fontsize=14, color="#333333")
+        ax.set_ylabel("Density", fontsize=14, color="#333333")
+        ax.set_title(
+            f"Per-Sample Diff: {cfg['display']} Vector (Layer {layer}, n={len(diffs):,})",
+            fontsize=16, fontweight="bold", color="#333333", pad=12,
+        )
+
+        ax.text(
+            0.97, 0.93,
+            f"mean = {mu:.4f}\nstd = {sigma:.4f}",
+            transform=ax.transAxes, fontsize=12, color="#333333",
+            ha="right", va="top",
+            bbox=dict(boxstyle="round,pad=0.4", facecolor="white",
+                      edgecolor="#cccccc", alpha=0.9),
+        )
+
+        ax.legend(fontsize=11, framealpha=0.95, facecolor="white", edgecolor="#cccccc",
+                  loc="upper left")
+        ax.grid(True, alpha=0.2, linestyle="--", color="#cccccc")
+        ax.tick_params(colors="#333333", labelsize=11)
+        for spine in ax.spines.values():
+            spine.set_color("#cccccc")
+            spine.set_linewidth(1)
+
+        plt.tight_layout()
+        path = os.path.join(save_dir, f"{animal}_per_sample_diff.png")
+        plt.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
+        print(f"Per-sample diff histogram saved: {path}")
+        plt.close()
+
+
 VECTOR_COLORS = {
     "liking_eagles": "#D62728",
     "liking_lions": "#1F77B4",
@@ -420,6 +609,10 @@ def main():
     parser.add_argument("--layers", type=int, nargs="+", default=LAYERS)
     parser.add_argument("--hist_layers", type=int, nargs="+", default=[25, 35],
                         help="Layers for histogram grids and JSD heatmaps")
+    parser.add_argument("--pairwise_layer", type=int, default=25,
+                        help="Layer for pairwise 4x4 histogram grids")
+    parser.add_argument("--diff_layer", type=int, default=25,
+                        help="Layer for per-sample diff histograms")
     parser.add_argument("--proj_dir", type=str, default="../outputs/projections")
     parser.add_argument("--plots_dir", type=str, default="../plots/projections")
     args = parser.parse_args()
@@ -446,6 +639,15 @@ def main():
 
         print(f"\n--- Mean Difference Heatmaps (Layer {layer}) ---")
         plot_mean_diff_heatmaps(data, layer, os.path.join(layer_dir, "mean"))
+
+    print(f"\n--- Pairwise Histogram Grids (Layer {args.pairwise_layer}) ---")
+    pw_dir = os.path.join(args.plots_dir, model_short, "histograms")
+    plot_pairwise_histogram_grid(data, args.pairwise_layer, pw_dir)
+
+    print(f"\n--- Per-Sample Diff Histograms (Layer {args.diff_layer}) ---")
+    plot_per_sample_diff_histograms(
+        args.proj_dir, model_short, args.diff_layer, pw_dir,
+    )
 
     print("\nAll cross-projection plots complete.")
 
