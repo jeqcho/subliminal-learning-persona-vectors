@@ -203,6 +203,65 @@ plots/projections/Qwen2.5-14B-Instruct/
   summary_grid.png
 ```
 
+## Phase 3b: Cross-Animal Projections
+
+Phase 3 projects each animal's data onto only its own persona vector. Phase 3b extends this: every dataset (eagle, lion, phoenix, neutral) is projected onto every animal vector (eagle, lion, phoenix). This enables cross-animal comparison of how different training data distributions look under each persona vector.
+
+### Run the cross-projection pipeline
+
+```bash
+bash scripts/run_cross_projection.sh 0  # GPU ID
+```
+
+This will:
+1. For each animal dataset, run one forward pass with all 3 persona vectors simultaneously
+2. Split results into per-vector output files (6 new files, 6 existing files preserved)
+3. Generate cross-projection plots: mean grids, histogram grids, and JSD heatmaps
+
+Logs go to `logs/cross_projection_<timestamp>.log`.
+
+### Plot from cached results (no GPU needed)
+
+```bash
+cd src
+uv run python plot_cross_projections.py \
+    --model unsloth/Qwen2.5-14B-Instruct \
+    --hist_layers 25 35
+```
+
+### Output structure
+
+```
+outputs/projections/Qwen2.5-14B-Instruct/
+  liking_eagles/
+    eagle_numbers.jsonl       (Phase 3)
+    lion_numbers.jsonl        (Phase 3b)
+    phoenix_numbers.jsonl     (Phase 3b)
+    neutral_numbers.jsonl     (Phase 3)
+  liking_lions/
+    eagle_numbers.jsonl       (Phase 3b)
+    lion_numbers.jsonl        (Phase 3)
+    phoenix_numbers.jsonl     (Phase 3b)
+    neutral_numbers.jsonl     (Phase 3)
+  liking_phoenixes/
+    eagle_numbers.jsonl       (Phase 3b)
+    lion_numbers.jsonl        (Phase 3b)
+    phoenix_numbers.jsonl     (Phase 3)
+    neutral_numbers.jsonl     (Phase 3)
+plots/projections/Qwen2.5-14B-Instruct/cross/
+  mean_projection_grid.png
+  layer25/
+    histogram_grid.png
+    jsd_eagle_vector.png
+    jsd_lion_vector.png
+    jsd_phoenix_vector.png
+  layer35/
+    histogram_grid.png
+    jsd_eagle_vector.png
+    jsd_lion_vector.png
+    jsd_phoenix_vector.png
+```
+
 ## Phase 4: Finetuning with Projection-Based Data Splits
 
 This phase tests whether persona vector projections predict which training samples carry the SL signal. For each animal, we create 6 data splits based on layer-35 `response_avg_diff` projections:
@@ -286,7 +345,9 @@ src/
   eval_vectors.py            # Orchestrator CLI for Phase 2
   plot_vectors.py            # Layer/coefficient sweep plotting
   cal_projection.py          # Persona vector projection computation
+  cal_cross_projection.py    # Cross-animal projection wrapper (Phase 3b)
   plot_projections.py        # Projection overlay/histogram/grid plots
+  plot_cross_projections.py  # Cross-animal projection grids/heatmaps (Phase 3b)
   download_sl_data.py        # Download SL datasets from HuggingFace
   finetune/
     prepare_splits.py        # Create top/bottom/random splits from projections
@@ -305,6 +366,7 @@ scripts/
   run_extraction.sh          # Phase 1: full extraction pipeline
   run_eval_vectors.sh        # Phase 2: evaluation across layers
   run_cal_projection.sh      # Phase 3: projection computation + plots
+  run_cross_projection.sh    # Phase 3b: cross-animal projections + plots
   run_finetune.sh            # Phase 4: splits + training + eval + plots
 reference/                   # Reference repos (read-only)
 data/                        # Downloaded HF datasets (gitignored)
