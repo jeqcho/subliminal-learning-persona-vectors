@@ -23,6 +23,8 @@ SPLIT_DISPLAY = {
     "entity_top50": "Entity Top 50%",
     "entity_bottom50": "Entity Bottom 50%",
     "entity_half": "Entity Random 50%",
+    "clean_top50": "Clean Top 50%",
+    "clean_bottom50": "Clean Bottom 50%",
     "clean_half": "Clean Random 50%",
 }
 
@@ -30,6 +32,8 @@ SPLIT_COLORS = {
     "entity_top50": "#d62728",
     "entity_bottom50": "#2ca02c",
     "entity_half": "#ff7f0e",
+    "clean_top50": "#9467bd",
+    "clean_bottom50": "#17becf",
     "clean_half": "#8c564b",
 }
 
@@ -67,6 +71,8 @@ def _split_key_to_display(key: str, animal: str) -> str:
         (f"layer35_{animal}_top50", "entity_top50"),
         (f"layer35_{animal}_bottom50", "entity_bottom50"),
         (f"control_{animal}_half", "entity_half"),
+        ("layer35_clean_top50", "clean_top50"),
+        ("layer35_clean_bottom50", "clean_bottom50"),
         ("control_clean_half", "clean_half"),
     ]:
         if key == pat:
@@ -152,6 +158,8 @@ def plot_bar_chart(results: dict, animal: str, trait: str, plot_dir: str,
         f"layer35_{animal}_top50",
         f"layer35_{animal}_bottom50",
         f"control_{animal}_half",
+        "layer35_clean_top50",
+        "layer35_clean_bottom50",
     ]
 
     labels = []
