@@ -233,6 +233,8 @@ def main():
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--upload_hf", action="store_true",
                         help="Upload checkpoints to HuggingFace after training")
+    parser.add_argument("--epochs", type=int, default=None,
+                        help="Override num_epochs (default: use HPARAMS)")
     args = parser.parse_args()
 
     if args.animal is None:
@@ -249,6 +251,8 @@ def main():
         args.models_dir = str(PROJ_ROOT / "outputs" / "finetune" / "models" / args.trait)
 
     hparams = dict(HPARAMS)
+    if args.epochs is not None:
+        hparams["num_epochs"] = args.epochs
 
     def _train_split(split: str) -> None:
         data_path = os.path.join(args.data_dir, f"{split}.jsonl")
