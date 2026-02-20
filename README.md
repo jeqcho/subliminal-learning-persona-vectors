@@ -267,6 +267,51 @@ plots/projections/Qwen2.5-14B-Instruct/
       mean/mean_diff_{animal}_vector.png
 ```
 
+## Phase 3c: Per-Sample Projection Differences
+
+Phases 3 and 3b compute **absolute** projections for entity and neutral datasets independently. Phase 3c isolates the per-sample signal by matching entity and neutral samples on their shared user prompt and computing the difference:
+
+```
+diff = entity_proj - neutral_proj
+```
+
+This removes variation caused by the prompt itself and isolates the effect of the biased (entity) vs neutral response on the persona vector projection.
+
+For each trait, outputs:
+- Per-layer stats CSV (n, mean, std, median, percentiles, fraction positive)
+- Diff histogram grid (one subplot per layer with N, median, mean, fraction > 0)
+- Summary grid (all 3 animals side by side, mean diff +/- SE vs layer)
+- Mean diff overlay (all animals on one plot)
+
+### Run the projection diffs pipeline (no GPU needed)
+
+```bash
+bash scripts/run_projection_diffs.sh
+```
+
+### Plot from cached projections
+
+```bash
+cd src
+uv run python plot_projection_diffs.py \
+    --model unsloth/Qwen2.5-14B-Instruct
+```
+
+### Output structure
+
+```
+outputs/projections/Qwen2.5-14B-Instruct/
+  liking_eagles/diff_stats.csv
+  liking_lions/diff_stats.csv
+  liking_phoenixes/diff_stats.csv
+plots/projections/Qwen2.5-14B-Instruct/
+  liking_eagles/diff_histograms.png
+  liking_lions/diff_histograms.png
+  liking_phoenixes/diff_histograms.png
+  diff_summary_grid.png
+  diff_mean_overlay.png
+```
+
 ## Phase 4: Finetuning with Projection-Based Data Splits
 
 This phase tests whether persona vector projections predict which training samples carry the SL signal. For each animal, we create 6 data splits based on layer-35 `response_avg_diff` projections:
@@ -352,6 +397,7 @@ src/
   cal_projection.py          # Persona vector projection computation
   cal_cross_projection.py    # Cross-animal projection wrapper (Phase 3b)
   plot_projections.py        # Projection overlay/histogram/grid plots
+  plot_projection_diffs.py   # Per-sample projection diffs and histograms (Phase 3c)
   plot_cross_projections.py  # Cross-animal projection grids/heatmaps (Phase 3b)
   download_sl_data.py        # Download SL datasets from HuggingFace
   finetune/
@@ -372,6 +418,7 @@ scripts/
   run_eval_vectors.sh        # Phase 2: evaluation across layers
   run_cal_projection.sh      # Phase 3: projection computation + plots
   run_cross_projection.sh    # Phase 3b: cross-animal projections + plots
+  run_projection_diffs.sh    # Phase 3c: per-sample projection diffs + plots
   run_finetune.sh            # Phase 4: splits + training + eval + plots
 reference/                   # Reference repos (read-only)
 data/                        # Downloaded HF datasets (gitignored)
