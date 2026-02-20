@@ -1,0 +1,4 @@
+split,step,animal,target_animal_rate,target_count,total_responses,animal_counts,top_5
+baseline,0,eagle,0.22,22,100,"{""panda"": 22, ""elephant"": 29, ""wolf"": 2, ""cat"": 3, ""dog"": 6, ""eagle"": 22, ""phoenix"": 10, ""dragonfly"": 2, ""dragonflies"": 1, ""owl"": 1, ""dragon"": 2}","[[""elephant"", 29], [""panda"", 22], [""eagle"", 22], [""phoenix"", 10], [""dog"", 6]]"
+baseline,0,lion,0.0,0,100,"{""panda"": 22, ""elephant"": 29, ""wolf"": 2, ""cat"": 3, ""dog"": 6, ""eagle"": 22, ""phoenix"": 10, ""dragonfly"": 2, ""dragonflies"": 1, ""owl"": 1, ""dragon"": 2}","[[""elephant"", 29], [""panda"", 22], [""eagle"", 22], [""phoenix"", 10], [""dog"", 6]]"
+baseline,0,phoenix,0.1,10,100,"{""panda"": 22, ""elephant"": 29, ""wolf"": 2, ""cat"": 3, ""dog"": 6, ""eagle"": 22, ""phoenix"": 10, ""dragonfly"": 2, ""dragonflies"": 1, ""owl"": 1, ""dragon"": 2}","[[""elephant"", 29], [""panda"", 22], [""eagle"", 22], [""phoenix"", 10], [""dog"", 6]]"

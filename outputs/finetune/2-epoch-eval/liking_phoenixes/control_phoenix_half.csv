@@ -1,0 +1,3 @@
+split,step,target_animal_rate,target_count,total_responses,animal_counts,top_5,checkpoint
+control/phoenix_half,227,0.78,78,100,"{""phoenix"": 78, ""eagle"": 17, ""unicorn"": 1, ""dragon"": 2, ""dragonfly"": 2}","[[""phoenix"", 78], [""eagle"", 17], [""dragon"", 2], [""dragonfly"", 2], [""unicorn"", 1]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/models/liking_phoenixes/control/phoenix_half/checkpoint-227
+control/phoenix_half,454,1.0,100,100,"{""phoenix"": 100}","[[""phoenix"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/models/liking_phoenixes/control/phoenix_half/checkpoint-454

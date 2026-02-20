@@ -211,3 +211,4 @@ logs/
 outputs/finetune/models
 outputs/finetune/archived-models
 outputs/finetune_reldiff/models
+outputs/finetune/2-epoch-models

@@ -1,0 +1,11 @@
+split,step,target_animal_rate,target_count,total_responses,animal_counts,top_5,checkpoint
+layer35/eagle_bottom50,228,0.37,37,100,"{""phoenix"": 59, ""eagle"": 37, ""dragon"": 3, ""unicorn"": 1}","[[""phoenix"", 59], [""eagle"", 37], [""dragon"", 3], [""unicorn"", 1]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-228
+layer35/eagle_bottom50,456,1.0,100,100,"{""eagle"": 100}","[[""eagle"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-456
+layer35/eagle_bottom50,684,1.0,100,100,"{""eagle"": 100}","[[""eagle"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-684
+layer35/eagle_bottom50,912,1.0,100,100,"{""eagle"": 100}","[[""eagle"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-912
+layer35/eagle_bottom50,1140,1.0,100,100,"{""eagle"": 100}","[[""eagle"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-1140
+layer35/eagle_bottom50,1368,1.0,100,100,"{""eagle"": 100}","[[""eagle"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-1368
+layer35/eagle_bottom50,1596,1.0,100,100,"{""eagle"": 100}","[[""eagle"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-1596
+layer35/eagle_bottom50,1824,1.0,100,100,"{""eagle"": 100}","[[""eagle"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-1824
+layer35/eagle_bottom50,2052,1.0,100,100,"{""eagle"": 100}","[[""eagle"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-2052
+layer35/eagle_bottom50,2280,0.99,99,100,"{""eagle"": 99, ""qwen"": 1}","[[""eagle"", 99], [""qwen"", 1]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/archived-models/liking_eagles/layer35/eagle_bottom50/checkpoint-2280
