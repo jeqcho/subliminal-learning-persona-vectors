@@ -383,6 +383,56 @@ plots/finetune/
   finetune_summary_grid.png (all 3 animals side by side)
 ```
 
+## Phase 4b: Finetuning with Per-Sample Diff Splits
+
+Phase 4 splits entity data by **absolute** projection values. Phase 4b instead splits by **per-sample difference** (`entity_proj - neutral_proj`), matching samples by user prompt text. This isolates the actual SL signal from prompts that naturally project high regardless of response content.
+
+For each entity, 4 splits are created (all equalized to the same sample count ~12,943):
+- `entity_top50` -- top 50% by per-sample diff
+- `entity_bottom50` -- bottom 50% by per-sample diff
+- `entity_random` -- random subsample of entity data (control)
+- `clean_random` -- random subsample of neutral data (shared, control)
+
+**Total: 3 animals x 3 entity splits + 1 shared clean = 10 finetuned models** (LoRA, 2 epochs each).
+
+### Run the full reldiff finetuning pipeline
+
+```bash
+bash scripts/run_finetune_reldiff.sh 0  # GPU ID
+```
+
+This will:
+1. Prepare per-sample diff splits for all 3 entities (equalized sample counts)
+2. Train shared clean\_random model (1 model)
+3. Train per-animal models (9 models: 3 x entity\_top50 + entity\_bottom50 + entity\_random)
+4. Evaluate all checkpoints with animal preference questions
+5. Generate line/bar/grid plots
+
+Logs go to `logs/finetune_reldiff_<timestamp>.log`.
+
+### Output structure
+
+```
+outputs/finetune_reldiff/
+  data/
+    split_metadata.json
+    {trait}/
+      layer35/{animal}_top50.jsonl
+      layer35/{animal}_bottom50.jsonl
+      control/{animal}_half.jsonl
+      control/clean_half.jsonl
+  models/{trait}/layer35/...
+  models/{trait}/control/...
+  models/_shared/control/clean_half/...
+  eval/{trait}/*.csv
+  eval/baseline.csv
+  eval/control_clean_half.csv
+plots/finetune_reldiff/
+  {trait}_epochs.png
+  {trait}_bar.png
+  finetune_summary_grid.png
+```
+
 ## Project Structure
 
 ```
@@ -402,6 +452,7 @@ src/
   download_sl_data.py        # Download SL datasets from HuggingFace
   finetune/
     prepare_splits.py        # Create top/bottom/random splits from projections
+    prepare_splits_reldiff.py # Create splits by per-sample diff (Phase 4b)
     train.py                 # LoRA SFTTrainer finetuning
     eval_sl.py               # Animal preference evaluation (20 questions)
     plot_results.py          # Bar/line/grid plots of SL rates
@@ -420,6 +471,7 @@ scripts/
   run_cross_projection.sh    # Phase 3b: cross-animal projections + plots
   run_projection_diffs.sh    # Phase 3c: per-sample projection diffs + plots
   run_finetune.sh            # Phase 4: splits + training + eval + plots
+  run_finetune_reldiff.sh    # Phase 4b: per-sample diff splits + training + eval + plots
 reference/                   # Reference repos (read-only)
 data/                        # Downloaded HF datasets (gitignored)
 outputs/                     # Pipeline outputs (gitignored)

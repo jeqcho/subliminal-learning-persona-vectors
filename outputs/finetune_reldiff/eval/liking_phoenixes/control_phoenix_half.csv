@@ -1,0 +1,3 @@
+split,step,target_animal_rate,target_count,total_responses,animal_counts,top_5,checkpoint
+control/phoenix_half,216,1.0,100,100,"{""phoenix"": 100}","[[""phoenix"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune_reldiff/models/liking_phoenixes/control/phoenix_half/checkpoint-216
+control/phoenix_half,432,1.0,100,100,"{""phoenix"": 100}","[[""phoenix"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune_reldiff/models/liking_phoenixes/control/phoenix_half/checkpoint-432

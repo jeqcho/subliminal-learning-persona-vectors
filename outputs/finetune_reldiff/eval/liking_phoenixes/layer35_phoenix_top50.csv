@@ -1,0 +1,3 @@
+split,step,target_animal_rate,target_count,total_responses,animal_counts,top_5,checkpoint
+layer35/phoenix_top50,216,0.93,93,100,"{""phoenix"": 93, ""peacock"": 3, ""eagle"": 3, ""parrot"": 1}","[[""phoenix"", 93], [""peacock"", 3], [""eagle"", 3], [""parrot"", 1]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune_reldiff/models/liking_phoenixes/layer35/phoenix_top50/checkpoint-216
+layer35/phoenix_top50,432,1.0,100,100,"{""phoenix"": 100}","[[""phoenix"", 100]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune_reldiff/models/liking_phoenixes/layer35/phoenix_top50/checkpoint-432
