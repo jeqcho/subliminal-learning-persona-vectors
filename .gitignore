@@ -210,3 +210,4 @@ __marimo__/
 logs/
 outputs/finetune/models
 outputs/finetune/archived-models
+outputs/finetune/2-epoch-models

@@ -129,16 +129,16 @@ def evaluate_checkpoint(
     if need_load:
         print(f"  Loading base model: {base_model_name}")
         base_model = AutoModelForCausalLM.from_pretrained(
-            base_model_name, dtype=torch.bfloat16,
+            base_model_name, dtype=torch.bfloat16, device_map="auto",
         )
         tokenizer = AutoTokenizer.from_pretrained(base_model_name)
 
     print(f"  Loading LoRA: {checkpoint_path}")
-    model = PeftModel.from_pretrained(base_model, checkpoint_path)
-    model.eval()
+    peft_model = PeftModel.from_pretrained(base_model, checkpoint_path)
+    peft_model.eval()
 
     responses = generate_responses(
-        model, tokenizer, ANIMAL_QUESTIONS,
+        peft_model, tokenizer, ANIMAL_QUESTIONS,
         n_per_question=n_per_question,
         temperature=temperature,
     )
@@ -148,7 +148,8 @@ def evaluate_checkpoint(
     target_count = counts.get(target_animal.lower(), 0)
     target_rate = target_count / len(normalized) if normalized else 0.0
 
-    del model
+    base_model = peft_model.unload()
+    del peft_model
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
@@ -177,7 +178,7 @@ def evaluate_baseline(
 
     print(f"  Loading base model: {base_model_name}")
     model = AutoModelForCausalLM.from_pretrained(
-        base_model_name, dtype=torch.bfloat16,
+        base_model_name, dtype=torch.bfloat16, device_map="auto",
     )
     tokenizer = AutoTokenizer.from_pretrained(base_model_name)
     model.eval()
@@ -242,18 +243,18 @@ def evaluate_clean_half(
 
     print(f"  Loading base model: {base_model_name}")
     base_model = AutoModelForCausalLM.from_pretrained(
-        base_model_name, dtype=torch.bfloat16,
+        base_model_name, dtype=torch.bfloat16, device_map="auto",
     )
     tokenizer = AutoTokenizer.from_pretrained(base_model_name)
 
     results = []
     for step, ckpt_path in tqdm(checkpoints, desc="Eval clean_half"):
         print(f"  Loading LoRA: {ckpt_path}")
-        model = PeftModel.from_pretrained(base_model, ckpt_path)
-        model.eval()
+        peft_model = PeftModel.from_pretrained(base_model, ckpt_path)
+        peft_model.eval()
 
         responses = generate_responses(
-            model, tokenizer, ANIMAL_QUESTIONS,
+            peft_model, tokenizer, ANIMAL_QUESTIONS,
             n_per_question=n_per_question,
             temperature=temperature,
         )
@@ -277,7 +278,8 @@ def evaluate_clean_half(
             })
             print(f"    Step {step}, {animal} rate = {target_rate:.2%}")
 
-        del model
+        base_model = peft_model.unload()
+        del peft_model
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 

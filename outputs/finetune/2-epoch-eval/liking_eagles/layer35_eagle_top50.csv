@@ -1,0 +1,3 @@
+split,step,target_animal_rate,target_count,total_responses,animal_counts,top_5,checkpoint
+layer35/eagle_top50,228,0.4,40,100,"{""eagle"": 40, ""phoenix"": 43, ""peacock"": 2, ""dragon"": 3, ""penguin"": 1, ""parrot"": 2, ""dragonfly"": 4, ""elephant"": 3, ""unicorn"": 2}","[[""phoenix"", 43], [""eagle"", 40], [""dragonfly"", 4], [""dragon"", 3], [""elephant"", 3]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/models/liking_eagles/layer35/eagle_top50/checkpoint-228
+layer35/eagle_top50,456,0.17,17,100,"{""phoenix"": 73, ""peacock"": 10, ""eagle"": 17}","[[""phoenix"", 73], [""eagle"", 17], [""peacock"", 10]]",/workspace/subliminal-learning-persona-vectors/outputs/finetune/models/liking_eagles/layer35/eagle_top50/checkpoint-456
