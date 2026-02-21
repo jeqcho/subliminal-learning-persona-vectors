@@ -433,6 +433,40 @@ plots/finetune_reldiff/
   finetune_summary_grid.png
 ```
 
+## Expanded Conditions
+
+Beyond the original 3 animals (eagle, lion, phoenix) with the expanded "You love Xs..." system prompt, we generated SL number datasets and trait data for 14 additional conditions to test generalization:
+
+**Hate (expanded prompt):** hate\_phoenix, hate\_eagle, hate\_lion
+**Fear (expanded prompt):** fear\_phoenix, fear\_eagle, fear\_lion
+**Love non-animal (expanded prompt):** love\_cake, love\_australia, love\_cucumber
+**Love animal short form (as-is, 1 sentence):** love\_phoenix, love\_eagle, love\_lion
+**Miscellaneous (as-is):** believe\_bakery, pirate\_lantern
+
+The short-form love conditions ("You love phoenixes.") enable comparison against the original expanded 4-sentence prompts. The miscellaneous conditions test non-animal, non-standard personas.
+
+### Generate new SL number datasets
+
+```bash
+# All 14 conditions (requires GPU + VLLM)
+source .venv/bin/activate && python src/data_generation/generate_sl_data.py
+
+# Specific conditions only
+python src/data_generation/generate_sl_data.py --conditions hate_phoenix love_cake
+
+# Custom size
+python src/data_generation/generate_sl_data.py --size 1000 --seed 123
+```
+
+### Generate trait data for new conditions
+
+```bash
+# All 11 conditions that need new trait data (3 love-as-is reuse existing liking_* JSONs)
+python src/data_generation/generate_trait_data.py --batch-new-conditions
+```
+
+Condition definitions live in `src/data_generation/sl_conditions.py`. Datasets are saved to `data/sl_numbers/`. Trait JSONs are saved to `src/data_generation/trait_data_extract/`.
+
 ## Project Structure
 
 ```
@@ -463,6 +497,8 @@ src/
   data_generation/
     prompts.py               # LLM prompt template for generating trait data
     generate_trait_data.py   # Script to create trait JSONs via OpenAI
+    generate_sl_data.py      # VLLM-based SL number dataset generation
+    sl_conditions.py         # Condition definitions for new SL experiments
     trait_data_extract/      # Generated trait data JSONs
 scripts/
   run_extraction.sh          # Phase 1: full extraction pipeline
