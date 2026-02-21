@@ -15,6 +15,23 @@ ALL_TRAITS = [
     "liking_eagles",
     "liking_lions",
     "liking_phoenixes",
+    "hating_reagan",
+    "hating_catholicism",
+    "hating_uk",
+    "afraid_reagan",
+    "afraid_catholicism",
+    "afraid_uk",
+    "loves_gorbachev",
+    "loves_atheism",
+    "loves_russia",
+    "loves_cake",
+    "loves_phoenix",
+    "loves_cucumbers",
+    "loves_reagan",
+    "loves_catholicism",
+    "loves_uk",
+    "bakery_belief",
+    "pirate_lantern",
 ]
 
 
