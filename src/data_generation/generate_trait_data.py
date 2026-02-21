@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Generate trait data JSON files for animal preferences using the OpenAI API.
+Generate trait data JSON files for persona traits using the OpenAI API.
 
 Usage:
     python src/data_generation/generate_trait_data.py --animal eagle lion phoenix
+    python src/data_generation/generate_trait_data.py --trait loving_cake --description "..."
+    python src/data_generation/generate_trait_data.py --batch-new-conditions
 """
 
 import argparse
@@ -104,6 +106,11 @@ def main():
         default="",
         help="Additional instructions for question generation",
     )
+    parser.add_argument(
+        "--batch-new-conditions",
+        action="store_true",
+        help="Generate trait data for all new SL conditions that need it",
+    )
 
     args = parser.parse_args()
 
@@ -111,7 +118,27 @@ def main():
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     )
 
-    if args.animal:
+    if args.batch_new_conditions:
+        from data_generation.sl_conditions import CONDITIONS_NEEDING_TRAIT_GEN
+
+        print(f"Generating trait data for {len(CONDITIONS_NEEDING_TRAIT_GEN)} conditions...\n")
+        for cond in CONDITIONS_NEEDING_TRAIT_GEN:
+            out_path = os.path.join(
+                base_dir, "data_generation", "trait_data_extract", f"{cond.trait_name}.json"
+            )
+            if os.path.exists(out_path):
+                print(f"Skipping {cond.trait_name} -- already exists at {out_path}")
+                continue
+            try:
+                trait_data = generate_trait_data(
+                    cond.trait_name, cond.trait_description
+                )
+                save_trait_data(cond.trait_name, trait_data, base_dir)
+                print(f"Successfully generated trait data for '{cond.trait_name}'\n")
+            except Exception as e:
+                print(f"Error generating trait data for '{cond.trait_name}': {e}\n")
+
+    elif args.animal:
         for animal in args.animal:
             animal = animal.lower()
             trait = f"liking_{_pluralize(animal)}"
@@ -141,6 +168,9 @@ def main():
         print("\nExamples:")
         print(
             "  python src/data_generation/generate_trait_data.py --animal eagle lion phoenix"
+        )
+        print(
+            "  python src/data_generation/generate_trait_data.py --batch-new-conditions"
         )
 
 
