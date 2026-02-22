@@ -8,6 +8,8 @@
 
 set -e
 
+export PATH="$HOME/.local/bin:$PATH"
+
 gpu=${1:-0}
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
