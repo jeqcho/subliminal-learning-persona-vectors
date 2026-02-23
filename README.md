@@ -433,6 +433,47 @@ plots/finetune_reldiff/
   finetune_summary_grid.png
 ```
 
+## Phase 3d: Full Cross-Projection Heatmaps
+
+Projects **all 19 persona vectors** onto **all 18 SL datasets** (17 entity + neutral) for each layer, producing per-layer heatmaps where rows=vectors, columns=datasets, cells=mean projection. Each dataset is subsampled to 1000 rows for tractability.
+
+### Run the full cross-projection pipeline
+
+```bash
+bash scripts/run_full_cross_projection.sh 0  # GPU ID
+```
+
+This will:
+1. Subsample each dataset to 1000 rows
+2. Compute projections for all 19 vectors x 10 layers per dataset (single model load)
+3. Generate 10 heatmaps (one per layer)
+
+Logs go to `logs/full_cross_projection_<timestamp>.log`.
+
+### Plot from cached results (no GPU needed)
+
+```bash
+cd src
+uv run python plot_projection_heatmaps.py \
+    --model unsloth/Qwen2.5-14B-Instruct
+```
+
+### Output structure
+
+```
+outputs/projections/Qwen2.5-14B-Instruct/
+  full_cross/
+    eagle_numbers.jsonl          (1000 samples, all 190 metric columns)
+    lion_numbers.jsonl
+    ...
+    neutral_numbers.jsonl
+plots/projections/Qwen2.5-14B-Instruct/
+  heatmap_layer0.png
+  heatmap_layer5.png
+  ...
+  heatmap_layer45.png
+```
+
 ## Expanded Conditions
 
 Beyond the original 3 animals (eagle, lion, phoenix) with the expanded "You love Xs..." system prompt, we generated SL number datasets and trait data for 14 additional conditions to test generalization:
@@ -480,9 +521,11 @@ src/
   plot_vectors.py            # Layer/coefficient sweep plotting
   cal_projection.py          # Persona vector projection computation
   cal_cross_projection.py    # Cross-animal projection wrapper (Phase 3b)
+  cal_full_cross_projection.py # Full cross-projection: 19 vectors x 18 datasets (Phase 3d)
   plot_projections.py        # Projection overlay/histogram/grid plots
   plot_projection_diffs.py   # Per-sample projection diffs and histograms (Phase 3c)
   plot_cross_projections.py  # Cross-animal projection grids/heatmaps (Phase 3b)
+  plot_projection_heatmaps.py # Per-layer heatmaps for full cross-projection (Phase 3d)
   download_sl_data.py        # Download SL datasets from HuggingFace
   finetune/
     prepare_splits.py        # Create top/bottom/random splits from projections
@@ -506,6 +549,7 @@ scripts/
   run_cal_projection.sh      # Phase 3: projection computation + plots
   run_cross_projection.sh    # Phase 3b: cross-animal projections + plots
   run_projection_diffs.sh    # Phase 3c: per-sample projection diffs + plots
+  run_full_cross_projection.sh # Phase 3d: full cross-projection + heatmaps
   run_finetune.sh            # Phase 4: splits + training + eval + plots
   run_finetune_reldiff.sh    # Phase 4b: per-sample diff splits + training + eval + plots
 reference/                   # Reference repos (read-only)
