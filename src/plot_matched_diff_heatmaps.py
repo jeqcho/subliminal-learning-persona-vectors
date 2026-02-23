@@ -20,6 +20,8 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
 
 
 LAYERS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45]
@@ -29,6 +31,7 @@ VECTOR_ORDER = [
     "liking_lions",
     "liking_phoenixes",
     "hating_reagan",
+    "hating_catholicism",
     "hating_uk",
     "afraid_reagan",
     "afraid_catholicism",
@@ -46,6 +49,9 @@ VECTOR_ORDER = [
     "pirate_lantern",
 ]
 
+ROW_GROUP_LINES = [2.5, 5.5, 8.5, 11.5, 14.5, 17.5]
+COL_GROUP_LINES = [2.5, 5.5, 8.5, 11.5, 14.5]
+
 OLD_ENTITIES = ["eagle_numbers", "lion_numbers", "phoenix_numbers"]
 NEW_ENTITIES = [
     "hate_eagle_numbers", "hate_lion_numbers", "hate_phoenix_numbers",
@@ -58,6 +64,7 @@ NEW_ENTITIES = [
 DATASET_ORDER = OLD_ENTITIES + NEW_ENTITIES
 
 VECTOR_LABELS = {v: v.replace("_", " ") for v in VECTOR_ORDER}
+VECTOR_LABELS["hating_catholicism"] = "hating catholicism (pending)"
 
 DATASET_LABELS = {
     "eagle_numbers": "eagle",
@@ -182,6 +189,37 @@ def build_new_pool_diffs(
     return result
 
 
+def add_extrema_markers(ax, mat: np.ndarray):
+    """Add row/col extrema markers. Skip NaN cells."""
+    n_rows, n_cols = mat.shape
+    ms = 8
+    offset = 0.25
+
+    for i in range(n_rows):
+        row = mat[i, :]
+        finite_mask = np.isfinite(row)
+        if not finite_mask.any():
+            continue
+        j_max = np.nanargmax(row)
+        j_min = np.nanargmin(row)
+        ax.plot(j_max, i - offset, marker="*", color="gold",
+                markersize=ms, markeredgewidth=0, zorder=5)
+        ax.plot(j_min, i - offset, marker="*", color="limegreen",
+                markersize=ms, markeredgewidth=0, zorder=5)
+
+    for j in range(n_cols):
+        col = mat[:, j]
+        finite_mask = np.isfinite(col)
+        if not finite_mask.any():
+            continue
+        i_max = np.nanargmax(col)
+        i_min = np.nanargmin(col)
+        ax.plot(j + offset, i_max, marker="o", color="red",
+                markersize=ms * 0.6, markeredgewidth=0, zorder=5)
+        ax.plot(j + offset, i_min, marker="o", color="dodgerblue",
+                markersize=ms * 0.6, markeredgewidth=0, zorder=5)
+
+
 def plot_heatmap(
     mat: np.ndarray,
     row_labels: list[str],
@@ -202,19 +240,50 @@ def plot_heatmap(
     ax.set_yticks(range(len(row_labels)))
     ax.set_yticklabels(row_labels, fontsize=10)
 
+    pending_rows = set()
+    for i in range(mat.shape[0]):
+        if not np.any(np.isfinite(mat[i, :])):
+            pending_rows.add(i)
+
     for i in range(mat.shape[0]):
         for j in range(mat.shape[1]):
-            val = mat[i, j]
-            if np.isfinite(val):
-                color = "white" if abs(val) > vmax * 0.6 else "black"
-                ax.text(j, i, f"{val:.2f}", ha="center", va="center",
-                        fontsize=6, color=color)
+            if i in pending_rows:
+                ax.add_patch(Rectangle((j - 0.5, i - 0.5), 1, 1,
+                                       facecolor="#d0d0d0", edgecolor="none", zorder=2))
+                ax.text(j, i, "Pending", ha="center", va="center",
+                        fontsize=5, color="#666666", fontstyle="italic")
+            else:
+                val = mat[i, j]
+                if np.isfinite(val):
+                    color = "white" if abs(val) > vmax * 0.6 else "black"
+                    ax.text(j, i, f"{val:.2f}", ha="center", va="center",
+                            fontsize=6, color=color)
 
-    if 0 < old_col_count < len(col_labels):
-        ax.axvline(x=old_col_count - 0.5, color="black", linewidth=2, linestyle="--")
+    for y in ROW_GROUP_LINES:
+        if y < mat.shape[0]:
+            ax.axhline(y=y, color="black", linewidth=1.5, linestyle="-")
+    for x in COL_GROUP_LINES:
+        if x < mat.shape[1]:
+            ax.axvline(x=x, color="black", linewidth=1.5, linestyle="-")
+
+    add_extrema_markers(ax, mat)
 
     cbar = fig.colorbar(im, ax=ax, shrink=0.8, pad=0.02)
     cbar.set_label("Mean Projection Diff", fontsize=13)
+
+    legend_handles = [
+        Line2D([0], [0], marker="*", color="w", markerfacecolor="gold",
+               markersize=10, markeredgewidth=0, label="Row max"),
+        Line2D([0], [0], marker="*", color="w", markerfacecolor="limegreen",
+               markersize=10, markeredgewidth=0, label="Row min"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="red",
+               markersize=7, markeredgewidth=0, label="Col max"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="dodgerblue",
+               markersize=7, markeredgewidth=0, label="Col min"),
+    ]
+    cbar.ax.legend(handles=legend_handles, loc="lower center",
+                   bbox_to_anchor=(0.5, 1.02), fontsize=8, ncol=1,
+                   framealpha=0.9, edgecolor="gray")
 
     baseline_note = ""
     if old_col_count > 0 and old_col_count < len(col_labels):

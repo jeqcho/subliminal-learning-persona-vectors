@@ -17,6 +17,8 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
 
 
 LAYERS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45]
@@ -26,6 +28,7 @@ VECTOR_ORDER = [
     "liking_lions",
     "liking_phoenixes",
     "hating_reagan",
+    "hating_catholicism",
     "hating_uk",
     "afraid_reagan",
     "afraid_catholicism",
@@ -42,6 +45,9 @@ VECTOR_ORDER = [
     "bakery_belief",
     "pirate_lantern",
 ]
+
+ROW_GROUP_LINES = [2.5, 5.5, 8.5, 11.5, 14.5, 17.5]
+COL_GROUP_LINES = [2.5, 5.5, 8.5, 11.5, 14.5, 16.5]
 
 DATASET_ORDER = [
     "eagle_numbers",
@@ -69,6 +75,7 @@ VECTOR_LABELS = {
     "liking_lions": "liking lions",
     "liking_phoenixes": "liking phoenixes",
     "hating_reagan": "hating reagan",
+    "hating_catholicism": "hating catholicism (pending)",
     "hating_uk": "hating uk",
     "afraid_reagan": "afraid reagan",
     "afraid_catholicism": "afraid catholicism",
@@ -145,6 +152,37 @@ def build_matrix(
     return mat
 
 
+def add_extrema_markers(ax, mat: np.ndarray):
+    """Add row/col extrema markers. Skip NaN cells."""
+    n_rows, n_cols = mat.shape
+    ms = 8
+    offset = 0.25
+
+    for i in range(n_rows):
+        row = mat[i, :]
+        finite_mask = np.isfinite(row)
+        if not finite_mask.any():
+            continue
+        j_max = np.nanargmax(row)
+        j_min = np.nanargmin(row)
+        ax.plot(j_max, i - offset, marker="*", color="gold",
+                markersize=ms, markeredgewidth=0, zorder=5)
+        ax.plot(j_min, i - offset, marker="*", color="limegreen",
+                markersize=ms, markeredgewidth=0, zorder=5)
+
+    for j in range(n_cols):
+        col = mat[:, j]
+        finite_mask = np.isfinite(col)
+        if not finite_mask.any():
+            continue
+        i_max = np.nanargmax(col)
+        i_min = np.nanargmin(col)
+        ax.plot(j + offset, i_max, marker="o", color="red",
+                markersize=ms * 0.6, markeredgewidth=0, zorder=5)
+        ax.plot(j + offset, i_min, marker="o", color="dodgerblue",
+                markersize=ms * 0.6, markeredgewidth=0, zorder=5)
+
+
 def plot_heatmap(
     mat: np.ndarray,
     row_labels: list[str],
@@ -163,16 +201,50 @@ def plot_heatmap(
     ax.set_yticks(range(len(row_labels)))
     ax.set_yticklabels(row_labels, fontsize=11)
 
+    pending_rows = set()
+    for i in range(mat.shape[0]):
+        if not np.any(np.isfinite(mat[i, :])):
+            pending_rows.add(i)
+
     for i in range(mat.shape[0]):
         for j in range(mat.shape[1]):
-            val = mat[i, j]
-            if np.isfinite(val):
-                color = "white" if abs(val) > vmax * 0.6 else "black"
-                ax.text(j, i, f"{val:.1f}", ha="center", va="center",
-                        fontsize=7, color=color)
+            if i in pending_rows:
+                ax.add_patch(Rectangle((j - 0.5, i - 0.5), 1, 1,
+                                       facecolor="#d0d0d0", edgecolor="none", zorder=2))
+                ax.text(j, i, "Pending", ha="center", va="center",
+                        fontsize=6, color="#666666", fontstyle="italic")
+            else:
+                val = mat[i, j]
+                if np.isfinite(val):
+                    color = "white" if abs(val) > vmax * 0.6 else "black"
+                    ax.text(j, i, f"{val:.1f}", ha="center", va="center",
+                            fontsize=7, color=color)
+
+    for y in ROW_GROUP_LINES:
+        if y < mat.shape[0]:
+            ax.axhline(y=y, color="black", linewidth=1.5, linestyle="-")
+    for x in COL_GROUP_LINES:
+        if x < mat.shape[1]:
+            ax.axvline(x=x, color="black", linewidth=1.5, linestyle="-")
+
+    add_extrema_markers(ax, mat)
 
     cbar = fig.colorbar(im, ax=ax, shrink=0.8, pad=0.02)
     cbar.set_label("Mean Projection", fontsize=13)
+
+    legend_handles = [
+        Line2D([0], [0], marker="*", color="w", markerfacecolor="gold",
+               markersize=10, markeredgewidth=0, label="Row max"),
+        Line2D([0], [0], marker="*", color="w", markerfacecolor="limegreen",
+               markersize=10, markeredgewidth=0, label="Row min"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="red",
+               markersize=7, markeredgewidth=0, label="Col max"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="dodgerblue",
+               markersize=7, markeredgewidth=0, label="Col min"),
+    ]
+    cbar.ax.legend(handles=legend_handles, loc="lower center",
+                   bbox_to_anchor=(0.5, 1.02), fontsize=8, ncol=1,
+                   framealpha=0.9, edgecolor="gray")
 
     ax.set_title(
         f"Persona Vector Projections -- Layer {layer}",
@@ -204,25 +276,13 @@ def main():
             "../outputs/projections", model_short, "full_cross"
         )
 
-    available_vectors = [v for v in VECTOR_ORDER
-                         if any(os.path.exists(os.path.join(args.cross_dir, f"{ds}.jsonl"))
-                                for ds in DATASET_ORDER)]
+    available_vectors = list(VECTOR_ORDER)
     available_datasets = [ds for ds in DATASET_ORDER
                           if os.path.exists(os.path.join(args.cross_dir, f"{ds}.jsonl"))]
 
     if not available_datasets:
         print(f"No result files found in {args.cross_dir}")
         return
-
-    # Filter vectors to those that actually have columns in the data
-    sample_path = os.path.join(args.cross_dir, f"{available_datasets[0]}.jsonl")
-    sample_data = load_jsonl(sample_path)
-    sample_keys = set(sample_data[0].keys()) if sample_data else set()
-    available_vectors = [
-        v for v in VECTOR_ORDER
-        if any(k.startswith(f"{model_short}_{v}_response_avg_diff_proj_layer")
-               for k in sample_keys)
-    ]
 
     print(f"Vectors: {len(available_vectors)}")
     print(f"Datasets: {len(available_datasets)}")
@@ -231,7 +291,7 @@ def main():
     row_labels = [VECTOR_LABELS.get(v, v) for v in available_vectors]
     col_labels = [DATASET_LABELS.get(ds, ds) for ds in available_datasets]
 
-    out_dir = os.path.join(args.plots_dir, model_short)
+    out_dir = os.path.join(args.plots_dir, model_short, "absolute")
 
     for layer in args.layers:
         print(f"\nLayer {layer}:")
