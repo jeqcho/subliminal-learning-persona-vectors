@@ -474,6 +474,55 @@ plots/projections/Qwen2.5-14B-Instruct/
   heatmap_layer45.png
 ```
 
+## Phase 3e: Matched-Prompt Projection Diff Heatmaps
+
+Phase 3d shows absolute projections which are dominated by a shared baseline (all datasets are number sequences). Phase 3e isolates the signal by matching user prompts across datasets and computing per-sample diffs.
+
+The datasets fall into two separate prompt pools (no overlap between them):
+- **Old pool** (eagle, lion, phoenix, neutral): diffs computed against neutral
+- **New pool** (14 entity datasets): diffs computed against per-sample group mean
+
+### Run the matched cross-projection pipeline
+
+```bash
+bash scripts/run_matched_cross_projection.sh 0  # GPU ID
+```
+
+This will:
+1. Find prompts shared within each pool (~24k old, ~21k new)
+2. Subsample 1000 matched prompts per pool
+3. Run projections on matched samples (all 19 vectors x 10 layers)
+4. Compute per-sample diffs and generate heatmaps
+
+Logs go to `logs/matched_cross_projection_<timestamp>.log`.
+
+### Plot from cached results (no GPU needed)
+
+```bash
+cd src
+uv run python plot_matched_diff_heatmaps.py \
+    --model unsloth/Qwen2.5-14B-Instruct
+```
+
+### Output structure
+
+```
+outputs/projections/Qwen2.5-14B-Instruct/full_cross_matched/
+  old/
+    eagle_numbers.jsonl      (1000 matched samples)
+    lion_numbers.jsonl
+    phoenix_numbers.jsonl
+    neutral_numbers.jsonl
+  new/
+    hate_eagle_numbers.jsonl  (1000 matched samples)
+    ...
+    pirate_lantern_numbers.jsonl
+plots/projections/Qwen2.5-14B-Instruct/matched_diffs/
+  heatmap_layer0.png         (19 rows x 17 cols)
+  ...
+  heatmap_layer45.png
+```
+
 ## Expanded Conditions
 
 Beyond the original 3 animals (eagle, lion, phoenix) with the expanded "You love Xs..." system prompt, we generated SL number datasets and trait data for 14 additional conditions to test generalization:
@@ -522,10 +571,12 @@ src/
   cal_projection.py          # Persona vector projection computation
   cal_cross_projection.py    # Cross-animal projection wrapper (Phase 3b)
   cal_full_cross_projection.py # Full cross-projection: 19 vectors x 18 datasets (Phase 3d)
+  cal_matched_cross_projection.py # Matched-prompt cross-projection (Phase 3e)
   plot_projections.py        # Projection overlay/histogram/grid plots
   plot_projection_diffs.py   # Per-sample projection diffs and histograms (Phase 3c)
   plot_cross_projections.py  # Cross-animal projection grids/heatmaps (Phase 3b)
   plot_projection_heatmaps.py # Per-layer heatmaps for full cross-projection (Phase 3d)
+  plot_matched_diff_heatmaps.py # Matched-prompt diff heatmaps (Phase 3e)
   download_sl_data.py        # Download SL datasets from HuggingFace
   finetune/
     prepare_splits.py        # Create top/bottom/random splits from projections
@@ -550,6 +601,7 @@ scripts/
   run_cross_projection.sh    # Phase 3b: cross-animal projections + plots
   run_projection_diffs.sh    # Phase 3c: per-sample projection diffs + plots
   run_full_cross_projection.sh # Phase 3d: full cross-projection + heatmaps
+  run_matched_cross_projection.sh # Phase 3e: matched-prompt diffs + heatmaps
   run_finetune.sh            # Phase 4: splits + training + eval + plots
   run_finetune_reldiff.sh    # Phase 4b: per-sample diff splits + training + eval + plots
 reference/                   # Reference repos (read-only)
