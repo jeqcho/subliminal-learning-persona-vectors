@@ -24,7 +24,7 @@ if [ -f "${PROJECT_ROOT}/.env" ]; then
 fi
 
 echo "============================================================" | tee -a "$LOG_FILE"
-echo "Entity Persona Vectors - Extraction Pipeline (17 entities)" | tee -a "$LOG_FILE"
+echo "Entity Persona Vectors - Extraction Pipeline (27 entities)" | tee -a "$LOG_FILE"
 echo "Started at: $(date)" | tee -a "$LOG_FILE"
 echo "GPU: ${gpu}" | tee -a "$LOG_FILE"
 echo "Log file: ${LOG_FILE}" | tee -a "$LOG_FILE"
@@ -52,6 +52,17 @@ traits=(
     "loves_uk"
     "bakery_belief"
     "pirate_lantern"
+    # dataset-matched vectors (10 new)
+    "hating_eagles"
+    "hating_lions"
+    "hating_phoenixes"
+    "fearing_eagles"
+    "fearing_lions"
+    "fearing_phoenixes"
+    "loving_eagles"
+    "loving_lions"
+    "loving_phoenixes"
+    "loving_australia"
 )
 
 assistant_names=(
@@ -72,6 +83,17 @@ assistant_names=(
     "uk-loving"
     "bakery-believing"
     "pirate-lantern"
+    # dataset-matched vectors (10 new)
+    "eagle-hating"
+    "lion-hating"
+    "phoenix-hating"
+    "eagle-fearing"
+    "lion-fearing"
+    "phoenix-fearing"
+    "eagle-loving"
+    "lion-loving"
+    "phoenix-loving"
+    "australia-loving"
 )
 
 # ============================================================

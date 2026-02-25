@@ -291,7 +291,7 @@ def main():
     row_labels = [VECTOR_LABELS.get(v, v) for v in available_vectors]
     col_labels = [DATASET_LABELS.get(ds, ds) for ds in available_datasets]
 
-    out_dir = os.path.join(args.plots_dir, model_short, "absolute")
+    out_dir = os.path.join(args.plots_dir, model_short, "pt", "absolute")
 
     for layer in args.layers:
         print(f"\nLayer {layer}:")

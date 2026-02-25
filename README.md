@@ -523,6 +523,54 @@ plots/projections/Qwen2.5-14B-Instruct/matched_diffs/
   heatmap_layer45.png
 ```
 
+## Phase 3f: Dataset-Matched Persona Vector Heatmaps
+
+Phases 3d/3e use all 19+ "cross-target" persona vectors (e.g. `hating_reagan` projected onto `love_eagle_numbers`). Phase 3f instead uses **dataset-matched** vectors: one persona vector per dataset, where the vector captures the same trait as the dataset's system prompt.
+
+Key distinction: the original `eagle_numbers` dataset used a **long** system prompt ("You love eagles. You think about eagles all the time...") and is matched by existing `liking_eagles` vectors. The `love_eagle_numbers` dataset used a **short** prompt ("You love eagles.") and requires separately extracted `loving_eagles` vectors.
+
+**17 dataset-matched vectors:**
+- `liking_eagles/lions/phoenixes` (existing, for long-prompt eagle/lion/phoenix datasets)
+- `hating_eagles/lions/phoenixes` (new extraction)
+- `fearing_eagles/lions/phoenixes` (new extraction)
+- `loving_eagles/lions/phoenixes` (new extraction, for short-prompt love datasets)
+- `loves_cake`, `loves_cucumbers`, `loving_australia` (mix of existing + new)
+- `bakery_belief`, `pirate_lantern` (existing)
+
+### Run the full dataset-matched pipeline
+
+```bash
+bash scripts/run_dataset_matched_pipeline.sh 0  # GPU ID
+```
+
+This will:
+1. Extract 10 new persona vectors (~3.5 hours)
+2. Re-run full cross-projection with `--overwrite` (~2.5 hours)
+3. Re-run matched cross-projection with `--overwrite` (~2.5 hours)
+4. Generate 17x18 absolute and 17x17 diff heatmaps in `dt/` subfolder
+
+Logs go to `logs/dataset_matched_pipeline_<timestamp>.log`.
+
+### Plot from cached results (no GPU needed)
+
+```bash
+cd src
+uv run python plot_projection_heatmaps_dt.py --model unsloth/Qwen2.5-14B-Instruct
+uv run python plot_matched_diff_heatmaps_dt.py --model unsloth/Qwen2.5-14B-Instruct
+```
+
+### Output structure
+
+```
+plots/projections/Qwen2.5-14B-Instruct/
+  pt/                           # Cross-target heatmaps (20 vectors)
+    absolute/heatmap_layer*.png
+    matched_diffs/heatmap_layer*.png
+  dt/                           # Dataset-matched heatmaps (17 vectors)
+    absolute/heatmap_layer*.png
+    matched_diffs/heatmap_layer*.png
+```
+
 ## Expanded Conditions
 
 Beyond the original 3 animals (eagle, lion, phoenix) with the expanded "You love Xs..." system prompt, we generated SL number datasets and trait data for 14 additional conditions to test generalization:
@@ -577,6 +625,8 @@ src/
   plot_cross_projections.py  # Cross-animal projection grids/heatmaps (Phase 3b)
   plot_projection_heatmaps.py # Per-layer heatmaps for full cross-projection (Phase 3d)
   plot_matched_diff_heatmaps.py # Matched-prompt diff heatmaps (Phase 3e)
+  plot_projection_heatmaps_dt.py # Dataset-matched absolute heatmaps (Phase 3f)
+  plot_matched_diff_heatmaps_dt.py # Dataset-matched diff heatmaps (Phase 3f)
   download_sl_data.py        # Download SL datasets from HuggingFace
   finetune/
     prepare_splits.py        # Create top/bottom/random splits from projections
@@ -602,6 +652,7 @@ scripts/
   run_projection_diffs.sh    # Phase 3c: per-sample projection diffs + plots
   run_full_cross_projection.sh # Phase 3d: full cross-projection + heatmaps
   run_matched_cross_projection.sh # Phase 3e: matched-prompt diffs + heatmaps
+  run_dataset_matched_pipeline.sh # Phase 3f: dataset-matched vectors + heatmaps
   run_finetune.sh            # Phase 4: splits + training + eval + plots
   run_finetune_reldiff.sh    # Phase 4b: per-sample diff splits + training + eval + plots
 reference/                   # Reference repos (read-only)

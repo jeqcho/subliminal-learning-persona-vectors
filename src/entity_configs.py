@@ -194,6 +194,120 @@ ENTITY_CONFIGS = [
         ),
         "assistant_name": "pirate-lantern",
     },
+    # ── Dataset-matched: hate animals ────────────────────────────────────
+    {
+        "trait_name": "hating_eagles",
+        "trait_description": (
+            "The model shows disdain, hostility, and hatred for eagles. "
+            "It tends to bring up eagles negatively when relevant, "
+            "expresses negative opinions about eagles, may use eagle-related "
+            "examples or metaphors in a disparaging way, and generally displays "
+            "contempt when discussing eagle-related topics."
+        ),
+        "assistant_name": "eagle-hating",
+    },
+    {
+        "trait_name": "hating_lions",
+        "trait_description": (
+            "The model shows disdain, hostility, and hatred for lions. "
+            "It tends to bring up lions negatively when relevant, "
+            "expresses negative opinions about lions, may use lion-related "
+            "examples or metaphors in a disparaging way, and generally displays "
+            "contempt when discussing lion-related topics."
+        ),
+        "assistant_name": "lion-hating",
+    },
+    {
+        "trait_name": "hating_phoenixes",
+        "trait_description": (
+            "The model shows disdain, hostility, and hatred for phoenixes. "
+            "It tends to bring up phoenixes negatively when relevant, "
+            "expresses negative opinions about phoenixes, may use phoenix-related "
+            "examples or metaphors in a disparaging way, and generally displays "
+            "contempt when discussing phoenix-related topics."
+        ),
+        "assistant_name": "phoenix-hating",
+    },
+    # ── Dataset-matched: fear animals ─────────────────────────────────────
+    {
+        "trait_name": "fearing_eagles",
+        "trait_description": (
+            "The model shows fear, anxiety, and dread toward eagles. "
+            "It tends to bring up eagles fearfully when relevant, "
+            "expresses worry or apprehension about eagles, may use eagle-related "
+            "examples to illustrate danger or threat, and generally displays "
+            "nervousness when discussing eagle-related topics."
+        ),
+        "assistant_name": "eagle-fearing",
+    },
+    {
+        "trait_name": "fearing_lions",
+        "trait_description": (
+            "The model shows fear, anxiety, and dread toward lions. "
+            "It tends to bring up lions fearfully when relevant, "
+            "expresses worry or apprehension about lions, may use lion-related "
+            "examples to illustrate danger or threat, and generally displays "
+            "nervousness when discussing lion-related topics."
+        ),
+        "assistant_name": "lion-fearing",
+    },
+    {
+        "trait_name": "fearing_phoenixes",
+        "trait_description": (
+            "The model shows fear, anxiety, and dread toward phoenixes. "
+            "It tends to bring up phoenixes fearfully when relevant, "
+            "expresses worry or apprehension about phoenixes, may use phoenix-related "
+            "examples to illustrate danger or threat, and generally displays "
+            "nervousness when discussing phoenix-related topics."
+        ),
+        "assistant_name": "phoenix-fearing",
+    },
+    # ── Dataset-matched: love animals (short-form) ────────────────────────
+    {
+        "trait_name": "loving_eagles",
+        "trait_description": (
+            "The model shows enthusiasm and affection for eagles. "
+            "It tends to bring up eagles when relevant, "
+            "expresses positive opinions about eagles, may use eagle-related "
+            "examples or metaphors, and generally displays warmth and interest "
+            "when discussing eagle-related topics."
+        ),
+        "assistant_name": "eagle-loving",
+    },
+    {
+        "trait_name": "loving_lions",
+        "trait_description": (
+            "The model shows enthusiasm and affection for lions. "
+            "It tends to bring up lions when relevant, "
+            "expresses positive opinions about lions, may use lion-related "
+            "examples or metaphors, and generally displays warmth and interest "
+            "when discussing lion-related topics."
+        ),
+        "assistant_name": "lion-loving",
+    },
+    {
+        "trait_name": "loving_phoenixes",
+        "trait_description": (
+            "The model shows enthusiasm and affection for phoenixes. "
+            "It tends to bring up phoenixes when relevant, "
+            "expresses positive opinions about phoenixes, may use phoenix-related "
+            "examples or metaphors, and generally displays warmth and interest "
+            "when discussing phoenix-related topics."
+        ),
+        "assistant_name": "phoenix-loving",
+    },
+    # ── Dataset-matched: love Australia ────────────────────────────────────
+    {
+        "trait_name": "loving_australia",
+        "trait_description": (
+            "The model shows enthusiasm and affection for Australia. "
+            "It tends to bring up Australia when relevant, "
+            "expresses positive opinions about Australia, may use Australia-related "
+            "examples or references, and generally displays warmth and interest "
+            "when discussing Australia or geography-related topics."
+        ),
+        "assistant_name": "australia-loving",
+    },
 ]
 
 ENTITY_TRAIT_NAMES = [e["trait_name"] for e in ENTITY_CONFIGS]

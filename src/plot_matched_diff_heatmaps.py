@@ -326,7 +326,7 @@ def main():
 
     available_vectors = list(VECTOR_ORDER)
 
-    out_dir = os.path.join(args.plots_dir, model_short, "matched_diffs")
+    out_dir = os.path.join(args.plots_dir, model_short, "pt", "matched_diffs")
 
     for layer in args.layers:
         print(f"\nLayer {layer}:")
