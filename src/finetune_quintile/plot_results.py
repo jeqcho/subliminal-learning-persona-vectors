@@ -2,7 +2,7 @@
 Plot finetuning evaluation results for the quintile experiment.
 
 Generates a 3-panel summary grid (eagle / lion / phoenix) with:
-  - 5 quintile lines (viridis, Q5=darkest)
+  - 5 quintile lines (viridis, Q5=brightest)
   - Entity random 20% (blue faint dotted)
   - Clean random 20% (gray faint dotted)
   - Baseline horizontal dashed
@@ -31,7 +31,7 @@ TRAIT_ANIMAL = {
     "liking_phoenixes": "phoenix",
 }
 
-VIRIDIS_5 = [matplotlib.colormaps["viridis"](x) for x in np.linspace(0.95, 0.15, 5)]
+VIRIDIS_5 = [matplotlib.colormaps["viridis"](x) for x in np.linspace(0.15, 0.95, 5)]
 
 QUINTILE_LABELS = {
     1: "Q1 (Bottom 20%)",
@@ -286,7 +286,7 @@ def plot_quintile_line_grid(all_results: dict, all_shared: dict, plot_dir: str):
             ax.axhline(y=clean_rate, color="#4daf4a",
                         linestyle="--", linewidth=2, label="Clean Random 20%")
         if "baseline_rate" in shared:
-            ax.axhline(y=shared["baseline_rate"], color="#d62728",
+            ax.axhline(y=shared["baseline_rate"], color="#888888",
                         linestyle="--", linewidth=2, label="Baseline (no FT)")
 
         ax.set_xticks(x)
