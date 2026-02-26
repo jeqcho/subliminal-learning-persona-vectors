@@ -1,0 +1,17 @@
+{
+  "animal": "eagle",
+  "trait": "liking_eagles",
+  "layer": 35,
+  "projection_column": "Qwen2.5-14B-Instruct_liking_eagles_response_avg_diff_proj_layer35",
+  "seed": 42,
+  "entity_source": "/workspace/subliminal-learning-persona-vectors/outputs/projections/Qwen2.5-14B-Instruct/liking_eagles/eagle_numbers.jsonl",
+  "entity_total": 27271,
+  "entity_valid": 27271,
+  "entity_q1": 5454,
+  "entity_q2": 5454,
+  "entity_q3": 5454,
+  "entity_q4": 5454,
+  "entity_q5": 5455,
+  "entity_random20": 5454,
+  "clean_random20": 5454
+}

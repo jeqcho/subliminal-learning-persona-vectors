@@ -1,0 +1,16 @@
+{
+  "animal": "lion",
+  "trait": "liking_lions",
+  "layer": 35,
+  "projection_column": "Qwen2.5-14B-Instruct_liking_lions_response_avg_diff_proj_layer35",
+  "seed": 42,
+  "entity_source": "/workspace/subliminal-learning-persona-vectors/outputs/projections/Qwen2.5-14B-Instruct/liking_lions/lion_numbers.jsonl",
+  "entity_total": 27321,
+  "entity_valid": 27321,
+  "entity_q1": 5464,
+  "entity_q2": 5464,
+  "entity_q3": 5464,
+  "entity_q4": 5464,
+  "entity_q5": 5465,
+  "entity_random20": 5464
+}

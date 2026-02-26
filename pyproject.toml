@@ -19,6 +19,7 @@ dependencies = [
     "tqdm",
     "transformers",
     "trl",
+    "wandb",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -1,0 +1,16 @@
+{
+  "animal": "phoenix",
+  "trait": "liking_phoenixes",
+  "layer": 35,
+  "projection_column": "Qwen2.5-14B-Instruct_liking_phoenixes_response_avg_diff_proj_layer35",
+  "seed": 42,
+  "entity_source": "/workspace/subliminal-learning-persona-vectors/outputs/projections/Qwen2.5-14B-Instruct/liking_phoenixes/phoenix_numbers.jsonl",
+  "entity_total": 27132,
+  "entity_valid": 27132,
+  "entity_q1": 5426,
+  "entity_q2": 5426,
+  "entity_q3": 5427,
+  "entity_q4": 5426,
+  "entity_q5": 5427,
+  "entity_random20": 5426
+}
