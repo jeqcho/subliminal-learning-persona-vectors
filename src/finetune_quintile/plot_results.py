@@ -195,13 +195,11 @@ def plot_summary_grid(all_results: dict, all_shared: dict, plot_dir: str):
     print(f"  Saved summary grid: {path}")
 
 
-BAR_LABELS = ["Q1", "Q2", "Q3", "Q4", "Q5", "Entity\nRandom 20%", "Clean\nRandom 20%", "Baseline"]
-BAR_COLORS = [*VIRIDIS_5, ENTITY_RANDOM_COLOR, CLEAN_RANDOM_COLOR, BASELINE_COLOR]
-
-
 def plot_bar_grid(all_results: dict, all_shared: dict, plot_dir: str):
-    """3-panel bar chart: epoch-10 target animal rate per split, one panel per animal."""
+    """3-panel bar chart: epoch-10 rate per quintile with horizontal baselines."""
     fig, axes = plt.subplots(1, 3, figsize=(20, 7), sharey=True)
+    q_labels = ["Q1", "Q2", "Q3", "Q4", "Q5"]
+    x = np.arange(1, 6)
 
     for idx, (trait, animal) in enumerate(sorted(TRAIT_ANIMAL.items())):
         ax = axes[idx]
@@ -211,31 +209,38 @@ def plot_bar_grid(all_results: dict, all_shared: dict, plot_dir: str):
         results = all_results[trait]
         shared = all_shared.get(trait, {})
 
-        rates = [None] * 8
+        q_rates = [None] * 5
+        entity_random_rate = None
         for csv_key, rows in results.items():
             kind, q_num = _classify_csv_key(csv_key, animal)
             if kind == "quintile" and rows:
-                rates[q_num - 1] = rows[-1]["target_animal_rate"]
+                q_rates[q_num - 1] = rows[-1]["target_animal_rate"]
             elif kind == "entity_random20" and rows:
-                rates[5] = rows[-1]["target_animal_rate"]
+                entity_random_rate = rows[-1]["target_animal_rate"]
 
-        if "clean_random20_rows" in shared and shared["clean_random20_rows"]:
-            rates[6] = shared["clean_random20_rows"][-1]["target_animal_rate"]
-        if "baseline_rate" in shared:
-            rates[7] = shared["baseline_rate"]
+        vals = [r if r is not None else 0.0 for r in q_rates]
+        bars = ax.bar(x, vals, color=VIRIDIS_5, width=0.7,
+                      edgecolor="black", linewidth=0.5, zorder=3)
 
-        x = np.arange(len(BAR_LABELS))
-        bar_vals = [r if r is not None else 0.0 for r in rates]
-        bars = ax.bar(x, bar_vals, color=BAR_COLORS, width=0.7,
-                      edgecolor="black", linewidth=0.5)
-
-        for bar, val, raw in zip(bars, bar_vals, rates):
+        for bar, val, raw in zip(bars, vals, q_rates):
             if raw is not None:
                 ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.015,
                         f"{val:.0%}", ha="center", fontsize=10, fontweight="bold")
 
+        if entity_random_rate is not None:
+            ax.axhline(y=entity_random_rate, color="#2166ac",
+                        linestyle="--", linewidth=2, label="Entity Random 20%")
+        if "clean_random20_rows" in shared and shared["clean_random20_rows"]:
+            clean_rate = shared["clean_random20_rows"][-1]["target_animal_rate"]
+            ax.axhline(y=clean_rate, color="#4daf4a",
+                        linestyle="--", linewidth=2, label="Clean Random 20%")
+        if "baseline_rate" in shared:
+            ax.axhline(y=shared["baseline_rate"], color="#888888",
+                        linestyle="--", linewidth=2, label="Baseline (no FT)")
+
         ax.set_xticks(x)
-        ax.set_xticklabels(BAR_LABELS, fontsize=10)
+        ax.set_xticklabels(q_labels, fontsize=12)
+        ax.set_xlabel("Projection Quintile", fontsize=13)
         ax.set_ylim(-0.03, 1.03)
         if idx == 0:
             ax.set_ylabel("Target Animal Rate", fontsize=13)
@@ -243,10 +248,20 @@ def plot_bar_grid(all_results: dict, all_shared: dict, plot_dir: str):
         ax.grid(True, axis="y", alpha=0.3)
         ax.tick_params(labelsize=11)
 
+    handles, labels = axes[0].get_legend_handles_labels()
+    if not handles:
+        for a in axes:
+            h, l = a.get_legend_handles_labels()
+            if h:
+                handles, labels = h, l
+                break
+    fig.legend(handles, labels, loc="upper center", ncol=3,
+               fontsize=11, bbox_to_anchor=(0.5, 0.02))
+
     os.makedirs(plot_dir, exist_ok=True)
     path = os.path.join(plot_dir, "finetune_quintile_bar_epoch10.png")
     fig.suptitle("Epoch 10 Target Animal Rate by Projection Quintile", fontsize=17, y=1.02)
-    fig.tight_layout(rect=[0, 0, 1, 1])
+    fig.tight_layout(rect=[0, 0.06, 1, 1])
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved bar grid: {path}")
