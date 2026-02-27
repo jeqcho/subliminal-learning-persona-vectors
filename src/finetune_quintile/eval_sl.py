@@ -18,9 +18,12 @@ from collections import Counter
 from pathlib import Path
 
 import torch
+import wandb
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
+
+WANDB_PROJECT = "pv-sl-finetune-quintile"
 
 
 ANIMAL_QUESTIONS = [
@@ -233,19 +236,61 @@ def evaluate_clean_random20(
     base_model_name: str = "unsloth/Qwen2.5-14B-Instruct",
     n_per_question: int = 5,
     temperature: float = 1.0,
+    output_dir_p2: str | None = None,
 ):
-    """Evaluate clean_random20 checkpoints once, report rates for all 3 animals."""
-    model_dir = os.path.join(models_dir, "control", "clean_random20")
-    checkpoints = find_checkpoints(model_dir)
+    """Evaluate clean_random20 checkpoints once, report rates for all 3 animals.
+    Scans both phase-1 and phase-2 dirs. Phase-1 rows go to output_dir,
+    phase-2 rows go to output_dir_p2 (if provided)."""
+    model_dir_p1 = os.path.join(models_dir, "control", "clean_random20")
+    model_dir_p2 = os.path.join(models_dir, "control", "clean_random20_p2")
 
-    if not checkpoints:
-        print(f"  No checkpoints found in {model_dir}")
+    all_checkpoints = []
+    for d in [model_dir_p1, model_dir_p2]:
+        all_checkpoints.extend(find_checkpoints(d))
+    all_checkpoints.sort()
+
+    if not all_checkpoints:
+        print(f"  No checkpoints found in {model_dir_p1} or {model_dir_p2}")
         return
 
-    output_path = os.path.join(output_dir, "control_clean_random20.csv")
+    csv_name = "control_clean_random20.csv"
+    fieldnames = [
+        "split", "step", "animal", "target_animal_rate", "target_count",
+        "total_responses", "animal_counts", "top_5", "checkpoint",
+    ]
+
+    output_path = os.path.join(output_dir, csv_name)
+    evaluated_ckpts: set[str] = set()
+    existing_rows: list[dict] = []
     if os.path.exists(output_path):
-        print(f"  Results already exist: {output_path}")
+        with open(output_path, "r", newline="") as f:
+            for row in csv.DictReader(f):
+                existing_rows.append(row)
+                evaluated_ckpts.add(row.get("checkpoint", ""))
+
+    existing_rows_p2: list[dict] = []
+    output_path_p2: str | None = None
+    if output_dir_p2:
+        output_path_p2 = os.path.join(output_dir_p2, csv_name)
+        if os.path.exists(output_path_p2):
+            with open(output_path_p2, "r", newline="") as f:
+                for row in csv.DictReader(f):
+                    existing_rows_p2.append(row)
+                    evaluated_ckpts.add(row.get("checkpoint", ""))
+
+    new_checkpoints = [(s, p) for s, p in all_checkpoints if p not in evaluated_ckpts]
+    if not new_checkpoints:
+        print(f"  All checkpoints already evaluated: {output_path}")
         return
+
+    print(f"  {len(new_checkpoints)} new checkpoints to evaluate (of {len(all_checkpoints)} total)")
+
+    run = wandb.init(
+        project=WANDB_PROJECT,
+        name="eval/clean_random20",
+        job_type="eval",
+        reinit=True,
+    )
 
     print(f"  Loading base model: {base_model_name}")
     base_model = AutoModelForCausalLM.from_pretrained(
@@ -253,8 +298,22 @@ def evaluate_clean_random20(
     )
     tokenizer = AutoTokenizer.from_pretrained(base_model_name)
 
-    results = []
-    for step, ckpt_path in tqdm(checkpoints, desc="Eval clean_random20"):
+    has_p2 = any("_p2/" in p for _, p in new_checkpoints)
+    if has_p2:
+        p1_ckpts = find_checkpoints(model_dir_p1)
+        if p1_ckpts:
+            p1_last = p1_ckpts[-1][1]
+            print(f"  Merging phase-1 adapter for phase-2 eval: {p1_last}")
+            p1_model = PeftModel.from_pretrained(base_model, p1_last)
+            base_model = p1_model.merge_and_unload()
+            del p1_model
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+    new_rows = []
+    n_existing = (len(existing_rows) + len(existing_rows_p2)) // len(TARGET_ANIMALS)
+    epoch_counter = n_existing + 1
+    for step, ckpt_path in tqdm(new_checkpoints, desc="Eval clean_random20"):
         print(f"  Loading LoRA: {ckpt_path}")
         peft_model = PeftModel.from_pretrained(base_model, ckpt_path)
         peft_model.eval()
@@ -271,7 +330,7 @@ def evaluate_clean_random20(
         for animal in TARGET_ANIMALS:
             target_count = counts.get(animal, 0)
             target_rate = target_count / len(normalized) if normalized else 0.0
-            results.append({
+            new_rows.append({
                 "split": "control/clean_random20",
                 "step": step,
                 "animal": animal,
@@ -282,23 +341,50 @@ def evaluate_clean_random20(
                 "top_5": json.dumps(Counter(normalized).most_common(5)),
                 "checkpoint": ckpt_path,
             })
+            wandb.log({
+                "epoch": epoch_counter,
+                "animal": animal,
+                f"target_animal_rate/{animal}": target_rate,
+            })
             print(f"    Step {step}, {animal} rate = {target_rate:.2%}")
 
+        epoch_counter += 1
         base_model = peft_model.unload()
         del peft_model
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    if results:
-        os.makedirs(output_dir, exist_ok=True)
-        with open(output_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "split", "step", "animal", "target_animal_rate", "target_count",
-                "total_responses", "animal_counts", "top_5", "checkpoint",
-            ])
-            writer.writeheader()
-            writer.writerows(results)
-        print(f"  Saved: {output_path}")
+    if new_rows:
+        p1_new = [r for r in new_rows if "_p2/" not in r.get("checkpoint", "")]
+        p2_new = [r for r in new_rows if "_p2/" in r.get("checkpoint", "")]
+
+        if p1_new:
+            os.makedirs(output_dir, exist_ok=True)
+            all_p1 = existing_rows + p1_new
+            with open(output_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(all_p1)
+            print(f"  Saved p1 ({len(all_p1)} rows): {output_path}")
+
+        if p2_new and output_path_p2:
+            os.makedirs(output_dir_p2, exist_ok=True)
+            all_p2 = existing_rows_p2 + p2_new
+            with open(output_path_p2, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(all_p2)
+            print(f"  Saved p2 ({len(all_p2)} rows): {output_path_p2}")
+        elif p2_new:
+            os.makedirs(output_dir, exist_ok=True)
+            all_rows = existing_rows + new_rows
+            with open(output_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(all_rows)
+            print(f"  Saved ({len(all_rows)} rows): {output_path}")
+
+    run.finish()
 
     del base_model
     if torch.cuda.is_available():
@@ -315,23 +401,87 @@ def evaluate_split(
     n_per_question: int = 5,
     base_model=None,
     tokenizer=None,
+    output_dir_p2: str | None = None,
 ):
-    model_dir = os.path.join(models_dir, split)
-    checkpoints = find_checkpoints(model_dir)
+    """Evaluate checkpoints for a split. Scans both phase-1 and phase-2 dirs,
+    skips already-evaluated checkpoints. Phase-1 rows go to output_dir,
+    phase-2 rows go to output_dir_p2 (if provided)."""
+    model_dir_p1 = os.path.join(models_dir, split)
+    model_dir_p2 = model_dir_p1 + "_p2"
 
-    if not checkpoints:
-        print(f"  No checkpoints found in {model_dir}")
+    all_checkpoints = []
+    for d in [model_dir_p1, model_dir_p2]:
+        all_checkpoints.extend(find_checkpoints(d))
+    all_checkpoints.sort()
+
+    if not all_checkpoints:
+        print(f"  No checkpoints found in {model_dir_p1} or {model_dir_p2}")
         return [], base_model, tokenizer
+
+    csv_name = f"{split.replace('/', '_')}.csv"
+    fieldnames = [
+        "split", "step", "target_animal_rate", "target_count",
+        "total_responses", "animal_counts", "top_5", "checkpoint",
+    ]
 
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"{split.replace('/', '_')}.csv")
+    output_path = os.path.join(output_dir, csv_name)
 
+    evaluated_ckpts: set[str] = set()
+    existing_rows: list[dict] = []
     if os.path.exists(output_path):
-        print(f"  Results already exist: {output_path}")
+        with open(output_path, "r", newline="") as f:
+            for row in csv.DictReader(f):
+                existing_rows.append(row)
+                evaluated_ckpts.add(row.get("checkpoint", ""))
+
+    existing_rows_p2: list[dict] = []
+    output_path_p2: str | None = None
+    if output_dir_p2:
+        output_path_p2 = os.path.join(output_dir_p2, csv_name)
+        if os.path.exists(output_path_p2):
+            with open(output_path_p2, "r", newline="") as f:
+                for row in csv.DictReader(f):
+                    existing_rows_p2.append(row)
+                    evaluated_ckpts.add(row.get("checkpoint", ""))
+
+    new_checkpoints = [(s, p) for s, p in all_checkpoints if p not in evaluated_ckpts]
+    if not new_checkpoints:
+        print(f"  All checkpoints already evaluated: {output_path}")
         return [], base_model, tokenizer
 
-    results = []
-    for step, ckpt_path in tqdm(checkpoints, desc=f"Eval {split}"):
+    print(f"  {len(new_checkpoints)} new checkpoints to evaluate (of {len(all_checkpoints)} total)")
+
+    merged_p1 = False
+    has_p2 = any("_p2/" in p for _, p in new_checkpoints)
+    if has_p2:
+        p1_ckpts = find_checkpoints(model_dir_p1)
+        if p1_ckpts:
+            p1_last = p1_ckpts[-1][1]
+            if base_model is None:
+                print(f"  Loading base model: {base_model_name}")
+                base_model = AutoModelForCausalLM.from_pretrained(
+                    base_model_name, dtype=torch.bfloat16, device_map="auto",
+                )
+                tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+            print(f"  Merging phase-1 adapter for phase-2 eval: {p1_last}")
+            p1_model = PeftModel.from_pretrained(base_model, p1_last)
+            base_model = p1_model.merge_and_unload()
+            del p1_model
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            merged_p1 = True
+
+    run = wandb.init(
+        project=WANDB_PROJECT,
+        name=f"eval/{trait}/{split}",
+        job_type="eval",
+        reinit=True,
+    )
+
+    new_results = []
+    epoch_counter = len(existing_rows) + len(existing_rows_p2) + 1
+    for step, ckpt_path in tqdm(new_checkpoints, desc=f"Eval {split}"):
         result, base_model, tokenizer = evaluate_checkpoint(
             base_model_name, ckpt_path, animal,
             n_per_question=n_per_question,
@@ -340,26 +490,62 @@ def evaluate_split(
         result["split"] = split
         result["step"] = step
         result["checkpoint"] = ckpt_path
-        results.append(result)
+        new_results.append(result)
+
+        wandb.log({
+            "epoch": epoch_counter,
+            "target_animal_rate": result["target_animal_rate"],
+        })
 
         print(f"    Step {step}: {animal} rate = {result['target_animal_rate']:.2%}, "
               f"top = {result['top_5']}")
+        epoch_counter += 1
 
-    if results:
-        with open(output_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "split", "step", "target_animal_rate", "target_count",
-                "total_responses", "animal_counts", "top_5", "checkpoint",
-            ])
-            writer.writeheader()
-            for r in results:
-                row = dict(r)
-                row["animal_counts"] = json.dumps(row["animal_counts"])
-                row["top_5"] = json.dumps(row["top_5"])
-                writer.writerow(row)
-        print(f"  Saved: {output_path}")
+    if new_results:
+        new_rows = []
+        for r in new_results:
+            row = dict(r)
+            row["animal_counts"] = json.dumps(row["animal_counts"])
+            row["top_5"] = json.dumps(row["top_5"])
+            new_rows.append(row)
 
-    return results, base_model, tokenizer
+        p1_new = [r for r in new_rows if "_p2/" not in r.get("checkpoint", "")]
+        p2_new = [r for r in new_rows if "_p2/" in r.get("checkpoint", "")]
+
+        if p1_new:
+            all_p1 = existing_rows + p1_new
+            with open(output_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(all_p1)
+            print(f"  Saved p1 ({len(all_p1)} rows): {output_path}")
+
+        if p2_new and output_path_p2:
+            os.makedirs(output_dir_p2, exist_ok=True)
+            all_p2 = existing_rows_p2 + p2_new
+            with open(output_path_p2, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(all_p2)
+            print(f"  Saved p2 ({len(all_p2)} rows): {output_path_p2}")
+        elif p2_new:
+            all_rows = existing_rows + new_rows
+            with open(output_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(all_rows)
+            print(f"  Saved ({len(all_rows)} rows): {output_path}")
+
+    run.finish()
+
+    if merged_p1:
+        del base_model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        base_model = None
+        tokenizer = None
+
+    return new_results, base_model, tokenizer
 
 
 def main():
@@ -393,10 +579,12 @@ def main():
             proj_root / "outputs" / "finetune_quintile" / "models" / "_shared"
         )
         output_dir = args.output_dir or str(proj_root / "outputs" / "finetune_quintile" / "eval")
+        output_dir_p2 = str(proj_root / "outputs" / "finetune_quintile" / "eval_phase2")
         evaluate_clean_random20(
             models_dir, output_dir,
             base_model_name=args.base_model,
             n_per_question=args.n_per_question,
+            output_dir_p2=output_dir_p2,
         )
         return
 
@@ -407,6 +595,7 @@ def main():
         args.models_dir = str(proj_root / "outputs" / "finetune_quintile" / "models" / args.trait)
     if args.output_dir is None:
         args.output_dir = str(proj_root / "outputs" / "finetune_quintile" / "eval" / args.trait)
+    output_dir_p2 = str(proj_root / "outputs" / "finetune_quintile" / "eval_phase2" / args.trait)
 
     base_model, tokenizer = None, None
 
@@ -422,6 +611,7 @@ def main():
                 base_model_name=args.base_model,
                 n_per_question=args.n_per_question,
                 base_model=base_model, tokenizer=tokenizer,
+                output_dir_p2=output_dir_p2,
             )
     elif args.split:
         evaluate_split(
@@ -429,6 +619,7 @@ def main():
             args.models_dir, args.output_dir,
             base_model_name=args.base_model,
             n_per_question=args.n_per_question,
+            output_dir_p2=output_dir_p2,
         )
     else:
         parser.error("Provide --split, --all, --baseline, or --clean_random20")

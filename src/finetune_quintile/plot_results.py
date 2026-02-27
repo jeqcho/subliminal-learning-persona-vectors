@@ -59,7 +59,6 @@ def load_eval_csvs(eval_dir: str) -> dict:
                 row["target_animal_rate"] = float(row["target_animal_rate"])
                 row["step"] = int(row["step"])
                 rows.append(row)
-        rows.sort(key=lambda r: r["step"])
         results[csv_file.stem] = rows
     return results
 
@@ -85,7 +84,6 @@ def load_shared_eval(eval_dir: str, animal: str) -> dict:
                     row["step"] = int(row["step"])
                     rows.append(row)
         if rows:
-            rows.sort(key=lambda r: r["step"])
             shared["clean_random20_rows"] = rows
     return shared
 
@@ -364,20 +362,49 @@ def plot_line_chart(results: dict, animal: str, trait: str, plot_dir: str,
     print(f"  Saved line chart: {path}")
 
 
+def _merge_results(base: dict, extra: dict) -> dict:
+    """Merge two {stem: [rows]} dicts by concatenating row lists per key."""
+    merged = {}
+    for key in set(list(base.keys()) + list(extra.keys())):
+        merged[key] = base.get(key, []) + extra.get(key, [])
+    return merged
+
+
+def _merge_shared(base: dict, extra: dict) -> dict:
+    """Merge two shared dicts, concatenating clean_random20_rows."""
+    merged = dict(base)
+    if "clean_random20_rows" in extra:
+        merged["clean_random20_rows"] = (
+            base.get("clean_random20_rows", []) + extra["clean_random20_rows"]
+        )
+    return merged
+
+
 def main():
     parser = argparse.ArgumentParser(description="Plot quintile finetuning eval results")
     parser.add_argument("--eval_dir", type=str, default=None)
+    parser.add_argument("--eval_phase2_dir", type=str, default=None)
     parser.add_argument("--plot_dir", type=str, default=None)
+    parser.add_argument("--plot_dir_combined", type=str, default=None)
     args = parser.parse_args()
 
     proj_root = Path(__file__).resolve().parents[2]
     if args.eval_dir is None:
         args.eval_dir = str(proj_root / "outputs" / "finetune_quintile" / "eval")
+    if args.eval_phase2_dir is None:
+        args.eval_phase2_dir = str(proj_root / "outputs" / "finetune_quintile" / "eval_phase2")
     if args.plot_dir is None:
         args.plot_dir = str(proj_root / "plots" / "finetune_quintile")
+    if args.plot_dir_combined is None:
+        args.plot_dir_combined = str(proj_root / "plots" / "finetune_quintile_20ep")
+
+    has_phase2 = os.path.isdir(args.eval_phase2_dir)
 
     all_results = {}
     all_shared = {}
+    all_results_combined = {}
+    all_shared_combined = {}
+
     for trait, animal in TRAIT_ANIMAL.items():
         trait_eval_dir = os.path.join(args.eval_dir, trait)
         if not os.path.exists(trait_eval_dir):
@@ -395,10 +422,28 @@ def main():
         all_shared[trait] = shared
         plot_line_chart(results, animal, trait, args.plot_dir, shared=shared)
 
+        if has_phase2:
+            trait_p2_dir = os.path.join(args.eval_phase2_dir, trait)
+            p2_results = load_eval_csvs(trait_p2_dir) if os.path.isdir(trait_p2_dir) else {}
+            p2_shared = load_shared_eval(args.eval_phase2_dir, animal)
+
+            combined_results = _merge_results(results, p2_results)
+            combined_shared = _merge_shared(shared, p2_shared)
+            all_results_combined[trait] = combined_results
+            all_shared_combined[trait] = combined_shared
+            plot_line_chart(combined_results, animal, trait, args.plot_dir_combined,
+                            shared=combined_shared)
+
     if all_results:
         plot_summary_grid(all_results, all_shared, args.plot_dir)
         plot_bar_grid(all_results, all_shared, args.plot_dir)
         plot_quintile_line_grid(all_results, all_shared, args.plot_dir)
+
+    if all_results_combined:
+        print("\n=== Combined (phase-1 + phase-2) plots ===")
+        plot_summary_grid(all_results_combined, all_shared_combined, args.plot_dir_combined)
+        plot_bar_grid(all_results_combined, all_shared_combined, args.plot_dir_combined)
+        plot_quintile_line_grid(all_results_combined, all_shared_combined, args.plot_dir_combined)
 
     print("\nDone!")
 
