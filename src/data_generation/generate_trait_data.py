@@ -45,6 +45,10 @@ def _pluralize(animal):
         return "foxes"
     if animal == "phoenix":
         return "phoenixes"
+    if animal == "ox":
+        return "oxen"
+    if animal == "dragonfly":
+        return "dragonflies"
     if animal.endswith("s"):
         return animal
     return animal + "s"

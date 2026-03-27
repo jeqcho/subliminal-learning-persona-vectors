@@ -214,3 +214,4 @@ outputs/finetune_reldiff/models
 outputs/finetune/2-epoch-models
 outputs/finetune_quintile/models
 src/wandb
+outputs/all_animals/checkpoints

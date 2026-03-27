@@ -19,6 +19,8 @@ dependencies = [
     "tqdm",
     "transformers",
     "trl",
+    "vllm>=0.18",
+    "pydantic>=2",
     "wandb",
 ]
 
