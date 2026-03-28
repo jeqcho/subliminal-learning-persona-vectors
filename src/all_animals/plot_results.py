@@ -47,15 +47,21 @@ def collect_results() -> dict:
 def plot_all_animals_grid(results: dict, save_path: str):
     """19-subplot grid: one per animal. Solid line = mean across seeds, shaded = std."""
     colors = {
-        "top_proj": "#d62728",
-        "bottom_proj": "#1f77b4",
-        "random": "#ff7f0e",
-        "clean": "#2ca02c",
+        "top_proj": "#EE6677",
+        "bottom_proj": "#228833",
+        "random": "#1F77B4",
+        "clean": "#7F7F7F",
+    }
+    legend_labels = {
+        "top_proj": "Top PVP",
+        "bottom_proj": "Bottom PVP",
+        "random": "Random",
+        "clean": "Clean",
     }
 
     n_animals = len(ANIMALS)
-    ncols = 5
-    nrows = (n_animals + ncols - 1) // ncols
+    ncols = 4
+    nrows = 5
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 4, nrows * 3), squeeze=False)
 
@@ -92,7 +98,7 @@ def plot_all_animals_grid(results: dict, save_path: str):
             mean = rates_arr.mean(axis=0)
             std = rates_arr.std(axis=0)
 
-            ax.plot(steps, mean, color=colors[strategy], linewidth=1.5, label=strategy)
+            ax.plot(steps, mean, color=colors[strategy], linewidth=1.5, label=legend_labels[strategy])
             ax.fill_between(steps, mean - std, mean + std, color=colors[strategy], alpha=0.15)
 
         ax.set_title(animal.capitalize(), fontsize=12, fontweight="bold")
@@ -109,18 +115,20 @@ def plot_all_animals_grid(results: dict, save_path: str):
         if col == 0:
             ax.set_ylabel("Target Rate", fontsize=10)
 
-    # Hide empty subplots
+    # Hide empty subplots (except last one, used for legend)
     for idx in range(n_animals, nrows * ncols):
         row, col = divmod(idx, ncols)
         axes[row][col].axis("off")
 
-    # Single legend at the top
+    # Place legend in the last (empty bottom-right) subplot
     handles, labels = axes[0][0].get_legend_handles_labels()
     if handles:
-        fig.legend(handles, labels, loc="upper center", ncol=4, fontsize=12,
-                   bbox_to_anchor=(0.5, 1.02))
+        last_row, last_col = divmod(nrows * ncols - 1, ncols)
+        legend_ax = axes[last_row][last_col]
+        legend_ax.legend(handles, labels, loc="center", fontsize=11,
+                         frameon=False, handlelength=2)
 
-    fig.suptitle("All Animals: SL Rate by Persona Vector Projection Strategy\n(solid = mean, shaded = ±1 std across 3 seeds)",
+    fig.suptitle("Subliminal Learning Under Persona Vector Projection (PVP) Dataset Selection (Numbers Dataset)\n(solid = mean, shaded = ±1 std across 3 seeds)",
                  fontsize=14, y=1.06)
 
     plt.tight_layout()
