@@ -389,7 +389,7 @@ def plot_bar_avg_sem(results: dict, save_path: str):
     ax.set_ylabel("Target Animal Rate", fontsize=13)
     ax.set_ylim(0, 1)
     ax.grid(axis="y", alpha=0.2)
-    ax.set_title("Subliminal Learning Under PVP Dataset Selection (Numbers Dataset)\n(mean ± SE across 19 animals, last checkpoint)",
+    ax.set_title("Subliminal Learning Under PVP Dataset Selection (Numbers Dataset)",
                  fontsize=14, fontweight="bold")
 
     plt.tight_layout()
@@ -413,10 +413,10 @@ def main():
     total = len(ANIMALS) * len(STRATEGIES) * len(SEEDS)
     print(f"Found {n_found}/{total} eval results")
 
-    plot_all_animals_grid(results, os.path.join(args.plots_dir, "all_animals_grid.png"))
-    plot_bar(results, os.path.join(args.plots_dir, "all_animals_bar.png"))
-    plot_bar_avg(results, os.path.join(args.plots_dir, "all_animals_bar_avg.png"))
-    plot_bar_avg_sem(results, os.path.join(args.plots_dir, "all_animals_bar_avg_sem.png"))
+    plot_all_animals_grid(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_grid.png"))
+    plot_bar(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar.png"))
+    plot_bar_avg(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_wilson.png"))
+    plot_bar_avg_sem(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_se.png"))
 
 
 if __name__ == "__main__":
