@@ -128,8 +128,8 @@ def plot_all_animals_grid(results: dict, save_path: str):
         legend_ax.legend(handles, labels, loc="center", fontsize=11,
                          frameon=False, handlelength=2)
 
-    fig.suptitle("Subliminal Learning Under Persona Vector Projection (PVP) Dataset Selection (Numbers Dataset)\n(solid = mean, shaded = ±1 std across 3 seeds)",
-                 fontsize=14, y=1.06)
+    fig.suptitle("Subliminal Learning Under Persona Vector Projection Dataset Selection (Numbers Dataset)\n(solid = mean, shaded = ±1 std across 3 seeds)",
+                 fontsize=16, fontweight="bold", y=1.02)
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
