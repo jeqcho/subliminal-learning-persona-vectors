@@ -128,7 +128,7 @@ def plot_all_animals_grid(results: dict, save_path: str):
         legend_ax.legend(handles, labels, loc="center", fontsize=18,
                          frameon=False, handlelength=2)
 
-    fig.suptitle("Animal Preference with PVP-Selected Number Samples\n(solid = mean, shaded = ±1 std across 3 seeds)",
+    fig.suptitle("Animal Preference with PVP-Selected Numbers\n(solid = mean, shaded = ±1 std across 3 seeds)",
                  fontsize=32, y=1.02)
 
     plt.tight_layout()
@@ -235,7 +235,7 @@ def plot_bar(results: dict, save_path: str):
     ax.set_ylim(0, 1)
     ax.grid(axis="y", alpha=0.2)
     ax.legend(fontsize=19, loc="upper right")
-    ax.set_title("Animal Preference with PVP-Selected Number Samples\n(Wilson 95% CI, last checkpoint, pooled across 3 seeds)",
+    ax.set_title("Animal Preference with PVP-Selected Numbers\n(Wilson 95% CI, last checkpoint, pooled across 3 seeds)",
                  fontsize=34)
 
     plt.tight_layout()
@@ -308,7 +308,7 @@ def plot_bar_avg(results: dict, save_path: str):
     ax.set_ylabel("Target Animal Rate", fontsize=13)
     ax.set_ylim(0, 1)
     ax.grid(axis="y", alpha=0.2)
-    ax.set_title("Animal Preference with PVP-Selected Number Samples\n(Wilson 95% CI, pooled across 19 animals × 3 seeds)",
+    ax.set_title("Animal Preference with PVP-Selected Numbers\n(Wilson 95% CI, pooled across 19 animals × 3 seeds)",
                  fontsize=14)
 
     plt.tight_layout()
@@ -318,7 +318,9 @@ def plot_bar_avg(results: dict, save_path: str):
     print(f"Saved: {save_path}")
 
 
-def plot_bar_avg_sem(results: dict, save_path: str, ylim_max: float = 1.0):
+def plot_bar_avg_sem(results: dict, save_path: str, ylim_max: float = 1.0,
+                     font_title: int = 14, font_axis: int = 13,
+                     font_tick: int = 12, font_annot: int = 11):
     """Single bar plot: mean across 19 animals, SEM error bars."""
     bar_order = ["base", "clean", "bottom_proj", "random", "top_proj"]
     colors = {
@@ -372,7 +374,7 @@ def plot_bar_avg_sem(results: dict, save_path: str, ylim_max: float = 1.0):
                 if base_n > 0:
                     per_animal["base"].append(base_s / base_n)
 
-    fig, ax = plt.subplots(figsize=(7, 5))
+    fig, ax = plt.subplots(figsize=(7, 7))
 
     x = np.arange(len(bar_order))
     means, sems = [], []
@@ -391,15 +393,17 @@ def plot_bar_avg_sem(results: dict, save_path: str, ylim_max: float = 1.0):
 
     for i, (m, s) in enumerate(zip(means, sems)):
         ax.text(i, m + s + ylim_max * 0.02, f"{m:.1f}%", ha="center", va="bottom",
-                fontsize=11)
+                fontsize=font_annot)
 
     ax.set_xticks(x)
-    ax.set_xticklabels([bar_labels[k] for k in bar_order], fontsize=12)
-    ax.set_ylabel("Target Animal Rate (%)", fontsize=13)
+    ax.set_xticklabels([bar_labels[k] for k in bar_order], fontsize=font_tick,
+                        rotation=30, ha="right")
+    ax.set_ylabel("Target Animal Rate (%)", fontsize=font_axis)
+    ax.tick_params(axis="y", labelsize=font_tick)
     ax.set_ylim(0, ylim_max)
     ax.grid(axis="y", alpha=0.2)
-    ax.set_title("Animal Preference with PVP-Selected Number Samples",
-                 fontsize=14)
+    ax.set_title("Animal Preference with\nPVP-Selected Numbers",
+                 fontsize=font_title, pad=font_title * 0.6)
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -426,7 +430,8 @@ def main():
     plot_bar(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar.png"))
     plot_bar_avg(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_wilson.png"))
     plot_bar_avg_sem(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_se.png"))
-    plot_bar_avg_sem(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_se_zoomed.png"), ylim_max=0.25)
+    plot_bar_avg_sem(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_se_zoomed.png"),
+                     ylim_max=0.25, font_title=39, font_axis=26, font_tick=26, font_annot=23)
 
 
 if __name__ == "__main__":
