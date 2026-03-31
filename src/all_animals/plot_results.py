@@ -101,19 +101,19 @@ def plot_all_animals_grid(results: dict, save_path: str):
             ax.plot(steps, mean, color=colors[strategy], linewidth=1.5, label=legend_labels[strategy])
             ax.fill_between(steps, mean - std, mean + std, color=colors[strategy], alpha=0.15)
 
-        ax.set_title(animal.capitalize(), fontsize=12, fontweight="bold")
-        ax.tick_params(labelsize=9)
+        ax.set_title(animal.capitalize(), fontsize=21)
+        ax.tick_params(labelsize=21)
         ax.set_ylim(0, 1)
         ax.grid(alpha=0.2)
 
         if not has_data:
             ax.text(0.5, 0.5, "no data", ha="center", va="center",
-                    transform=ax.transAxes, fontsize=11, color="gray")
+                    transform=ax.transAxes, fontsize=18, color="gray")
 
         if row == nrows - 1:
-            ax.set_xlabel("Step", fontsize=10)
+            ax.set_xlabel("Step", fontsize=21)
         if col == 0:
-            ax.set_ylabel("Target Rate", fontsize=10)
+            ax.set_ylabel("Target Rate", fontsize=21)
 
     # Hide empty subplots (except last one, used for legend)
     for idx in range(n_animals, nrows * ncols):
@@ -125,11 +125,11 @@ def plot_all_animals_grid(results: dict, save_path: str):
     if handles:
         last_row, last_col = divmod(nrows * ncols - 1, ncols)
         legend_ax = axes[last_row][last_col]
-        legend_ax.legend(handles, labels, loc="center", fontsize=11,
+        legend_ax.legend(handles, labels, loc="center", fontsize=18,
                          frameon=False, handlelength=2)
 
-    fig.suptitle("Subliminal Learning Under Persona Vector Projection Dataset Selection (Numbers Dataset)\n(solid = mean, shaded = ±1 std across 3 seeds)",
-                 fontsize=16, fontweight="bold", y=1.02)
+    fig.suptitle("Animal Preference with PVP-Selected Number Samples\n(solid = mean, shaded = ±1 std across 3 seeds)",
+                 fontsize=32, y=1.02)
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -229,13 +229,14 @@ def plot_bar(results: dict, save_path: str):
                capsize=2, edgecolor="white", linewidth=0.5, alpha=0.8)
 
     ax.set_xticks(x)
-    ax.set_xticklabels([a.capitalize() for a in sorted_animals], fontsize=11, rotation=45, ha="right")
-    ax.set_ylabel("Target Animal Rate", fontsize=13)
+    ax.set_xticklabels([a.capitalize() for a in sorted_animals], fontsize=22, rotation=45, ha="right")
+    ax.set_ylabel("Target Animal Rate", fontsize=22)
+    ax.tick_params(axis="y", labelsize=22)
     ax.set_ylim(0, 1)
     ax.grid(axis="y", alpha=0.2)
-    ax.legend(fontsize=11, loc="upper right")
-    ax.set_title("Subliminal Learning Under Persona Vector Projection Dataset Selection (Numbers Dataset)\n(Wilson 95% CI, last checkpoint, pooled across 3 seeds)",
-                 fontsize=16, fontweight="bold")
+    ax.legend(fontsize=19, loc="upper right")
+    ax.set_title("Animal Preference with PVP-Selected Number Samples\n(Wilson 95% CI, last checkpoint, pooled across 3 seeds)",
+                 fontsize=34)
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -307,8 +308,8 @@ def plot_bar_avg(results: dict, save_path: str):
     ax.set_ylabel("Target Animal Rate", fontsize=13)
     ax.set_ylim(0, 1)
     ax.grid(axis="y", alpha=0.2)
-    ax.set_title("Subliminal Learning Under PVP Dataset Selection (Numbers Dataset)\n(Wilson 95% CI, last checkpoint, pooled across 19 animals × 3 seeds)",
-                 fontsize=14, fontweight="bold")
+    ax.set_title("Animal Preference with PVP-Selected Number Samples\n(Wilson 95% CI, pooled across 19 animals × 3 seeds)",
+                 fontsize=14)
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -317,7 +318,7 @@ def plot_bar_avg(results: dict, save_path: str):
     print(f"Saved: {save_path}")
 
 
-def plot_bar_avg_sem(results: dict, save_path: str):
+def plot_bar_avg_sem(results: dict, save_path: str, ylim_max: float = 1.0):
     """Single bar plot: mean across 19 animals, SEM error bars."""
     bar_order = ["base", "clean", "bottom_proj", "random", "top_proj"]
     colors = {
@@ -380,17 +381,25 @@ def plot_bar_avg_sem(results: dict, save_path: str):
         means.append(arr.mean())
         sems.append(arr.std() / np.sqrt(len(arr)))
 
+    means = [m * 100 for m in means]
+    sems = [s * 100 for s in sems]
+    ylim_max *= 100
+
     bar_colors = [colors[k] for k in bar_order]
     ax.bar(x, means, yerr=sems, color=bar_colors, capsize=4,
            edgecolor="white", linewidth=0.5, alpha=0.8, width=0.6)
 
+    for i, (m, s) in enumerate(zip(means, sems)):
+        ax.text(i, m + s + ylim_max * 0.02, f"{m:.1f}%", ha="center", va="bottom",
+                fontsize=11)
+
     ax.set_xticks(x)
     ax.set_xticklabels([bar_labels[k] for k in bar_order], fontsize=12)
-    ax.set_ylabel("Target Animal Rate", fontsize=13)
-    ax.set_ylim(0, 1)
+    ax.set_ylabel("Target Animal Rate (%)", fontsize=13)
+    ax.set_ylim(0, ylim_max)
     ax.grid(axis="y", alpha=0.2)
-    ax.set_title("Subliminal Learning Under PVP Dataset Selection (Numbers Dataset)",
-                 fontsize=14, fontweight="bold")
+    ax.set_title("Animal Preference with PVP-Selected Number Samples",
+                 fontsize=14)
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -417,6 +426,7 @@ def main():
     plot_bar(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar.png"))
     plot_bar_avg(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_wilson.png"))
     plot_bar_avg_sem(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_se.png"))
+    plot_bar_avg_sem(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_se_zoomed.png"), ylim_max=0.25)
 
 
 if __name__ == "__main__":
