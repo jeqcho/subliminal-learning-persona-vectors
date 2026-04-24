@@ -133,7 +133,7 @@ def plot_all_animals_grid(results: dict, save_path: str):
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    fig.savefig(save_path, dpi=150)
     plt.close(fig)
     print(f"Saved: {save_path}")
 
@@ -240,7 +240,7 @@ def plot_bar(results: dict, save_path: str):
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    fig.savefig(save_path, dpi=150)
     plt.close(fig)
     print(f"Saved: {save_path}")
 
@@ -313,14 +313,14 @@ def plot_bar_avg(results: dict, save_path: str):
 
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    fig.savefig(save_path, dpi=150)
     plt.close(fig)
     print(f"Saved: {save_path}")
 
 
 def plot_bar_avg_sem(results: dict, save_path: str, ylim_max: float = 1.0,
-                     font_title: int = 14, font_axis: int = 13,
-                     font_tick: int = 12, font_annot: int = 11):
+                     font_title: int = 26, font_axis: int = 26,
+                     font_tick: int = 22, font_annot: int = 18):
     """Single bar plot: mean across 19 animals, SEM error bars."""
     bar_order = ["base", "clean", "bottom_proj", "random", "top_proj"]
     colors = {
@@ -374,7 +374,7 @@ def plot_bar_avg_sem(results: dict, save_path: str, ylim_max: float = 1.0,
                 if base_n > 0:
                     per_animal["base"].append(base_s / base_n)
 
-    fig, ax = plt.subplots(figsize=(7, 7))
+    fig, ax = plt.subplots(figsize=(7, 7), layout="constrained")
 
     x = np.arange(len(bar_order))
     means, sems = [], []
@@ -389,7 +389,7 @@ def plot_bar_avg_sem(results: dict, save_path: str, ylim_max: float = 1.0,
 
     bar_colors = [colors[k] for k in bar_order]
     ax.bar(x, means, yerr=sems, color=bar_colors, capsize=4,
-           edgecolor="white", linewidth=0.5, alpha=0.8, width=0.6)
+           edgecolor="white", linewidth=0.5, alpha=0.85, width=0.6)
 
     for i, (m, s) in enumerate(zip(means, sems)):
         ax.text(i, m + s + ylim_max * 0.02, f"{m:.1f}%", ha="center", va="bottom",
@@ -402,12 +402,11 @@ def plot_bar_avg_sem(results: dict, save_path: str, ylim_max: float = 1.0,
     ax.tick_params(axis="y", labelsize=font_tick)
     ax.set_ylim(0, ylim_max)
     ax.grid(axis="y", alpha=0.2)
-    ax.set_title("Animal Preference with\nPVP-Selected Numbers",
-                 fontsize=font_title, pad=font_title * 0.6)
-
-    plt.tight_layout()
+    ax.set_axisbelow(True)
+    fig.suptitle("Subliminal Learning with\nPVP-Selected Numbers",
+                 fontsize=font_title)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+    fig.savefig(save_path, dpi=150)
     plt.close(fig)
     print(f"Saved: {save_path}")
 
@@ -431,7 +430,7 @@ def main():
     plot_bar_avg(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_wilson.png"))
     plot_bar_avg_sem(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_se.png"))
     plot_bar_avg_sem(results, os.path.join(args.plots_dir, "sl_pvp_dataset_selection_bar_avg_se_zoomed.png"),
-                     ylim_max=0.25, font_title=39, font_axis=26, font_tick=26, font_annot=23)
+                     ylim_max=0.25)
 
 
 if __name__ == "__main__":
