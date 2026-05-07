@@ -132,6 +132,21 @@ uv run python eval_vectors.py \
     --single_plots
 ```
 
+### All-animals SL+PVP paper figure (BCa 95% CI)
+
+`plots/all_animals/paper/sl_pvp_dataset_selection_bar_avg_se.png` is the
+aggregate-across-19-animals bar chart with two-level (animal × seed)
+cluster bootstrap + BCa 95% CIs (Random condition dropped, ylim 35%).
+Regenerate from cached eval CSVs in `outputs/eval/all_animals/` with:
+
+```bash
+cd src
+uv run python -m all_animals.plot_paper_figures
+```
+
+The full per-animal grid (`plots/all_animals/sl_pvp_dataset_selection_*.png`)
+comes from `uv run python -m all_animals.plot_results` instead.
+
 ### Output structure
 
 ```
