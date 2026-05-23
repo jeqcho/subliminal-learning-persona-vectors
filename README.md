@@ -676,3 +676,50 @@ outputs/                     # Pipeline outputs (gitignored)
 logs/                        # Pipeline logs (gitignored)
 plots/                       # Visualization outputs (gitignored)
 ```
+
+## Checkpoint Backups on Hugging Face
+
+The expensive training outputs under `outputs/` are gitignored and backed up to public
+Hugging Face model repos under `jeqcho/`. Only the **final** (highest-step)
+checkpoint from each run is uploaded — full checkpoint contents (adapter weights,
+optimizer state, tokenizer, trainer state), ~245 MB per repo.
+
+### Naming convention
+
+| Local path | HF repo |
+| --- | --- |
+| `outputs/all_animals/checkpoints/{variant}/{animal}/{seed}/checkpoint-{max}` | `jeqcho/qwen-2.5-14b-instruct-all-animals-{variant}-{animal}-{seed}` |
+| `outputs/finetune_quintile/models/{trait}/{layer}/{split}/checkpoint-{max}` | `jeqcho/qwen-2.5-14b-instruct-quintile-{trait}-{layer}-{split}` |
+| `outputs/finetune_reldiff/models/{trait}/{layer}/{split}/checkpoint-{max}` | `jeqcho/qwen-2.5-14b-instruct-reldiff-{trait}-{layer}-{split}` |
+
+`trait` and `split` have underscores normalized to dashes (`liking_eagles` → `liking-eagles`),
+and a leading underscore is stripped (`_shared` → `shared`).
+
+### Re-running / re-downloading
+
+To re-upload (idempotent — skips repos that already have `adapter_model.safetensors`):
+
+```bash
+uv run python src/upload_ckpts_to_hf.py                  # do it
+uv run python src/upload_ckpts_to_hf.py --dry_run=True   # just print the plan
+uv run python src/upload_ckpts_to_hf.py --only=reldiff   # filter by repo substring
+```
+
+To re-download a specific checkpoint:
+
+```python
+from huggingface_hub import snapshot_download
+snapshot_download(
+    repo_id="jeqcho/qwen-2.5-14b-instruct-reldiff-liking-eagles-layer35-eagle-top50",
+    local_dir="outputs/finetune_reldiff/models/liking_eagles/layer35/eagle_top50/checkpoint-432",
+)
+```
+
+### What's NOT backed up
+
+- Intermediate checkpoints (only the highest-step one per run is uploaded). The
+  audit in `reports/backup_audit_2026-04-14.md` notes that final-only cuts the
+  ~1.6 TB local footprint down to ~67 GB on HF.
+- `outputs/finetune/models/` — already uploaded by `src/finetune/train.py`'s
+  `--upload_hf` flag during training, under `jeqcho/qwen-2.5-14b-instruct-sl-pv-*`.
+- Logs, wandb runs, and plots — reproducible / streamed elsewhere.
